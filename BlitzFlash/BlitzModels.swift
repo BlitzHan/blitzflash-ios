@@ -37,17 +37,17 @@ enum BlitzMode: String, CaseIterable, Identifiable {
         switch self {
         case .free: "Serbest Mod"
         case .typing: "Yazarak Tahmin"
-        case .sentence: "Cumle Tamamla"
-        case .hunt: "Kelime Avi"
+        case .sentence: "Cümle Tamamla"
+        case .hunt: "Kelime Avı"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .free: "Suresiz, kendi hizinda calis"
+        case .free: "Süresiz, kendi hızında çalış"
         case .typing: "60 saniyede kac bilirsin?"
-        case .sentence: "Bosluklu cumlede dogru kelimeyi bul"
-        case .hunt: "Grid'deki kelimeleri cevir"
+        case .sentence: "Boşluklu cümlede doğru kelimeyi bul"
+        case .hunt: "Grid'deki kelimeleri çevir"
         }
     }
 

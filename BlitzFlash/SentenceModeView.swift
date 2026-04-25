@@ -21,8 +21,8 @@ struct SentenceModeView: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack {
-                StatPill(title: "Dogru", value: correct, color: BlitzTheme.success)
-                StatPill(title: "Yanlis", value: wrong, color: BlitzTheme.danger)
+                StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
+                StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
             }
 
             BlitzCard(glow: BlitzTheme.success) {
@@ -69,7 +69,7 @@ struct SentenceModeView: View {
                 }
             }
 
-            Button("Sonraki Cumle") {
+            Button("Sonraki Cümle") {
                 selectedAnswer = nil
                 currentIndex = (currentIndex + 1) % words.count
             }
@@ -83,7 +83,7 @@ struct SentenceModeView: View {
         }
         .padding(20)
         .blitzScreen()
-        .navigationTitle("Cumle Tamamla")
+        .navigationTitle("Cümle Tamamla")
         .navigationBarTitleDisplayMode(.inline)
     }
 

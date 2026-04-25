@@ -57,7 +57,7 @@ struct WordHuntView: View {
         }
         .scrollContentBackground(.hidden)
         .blitzScreen()
-        .navigationTitle("Kelime Avi")
+        .navigationTitle("Kelime Avı")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedWord) { word in
             huntSheet(for: word)
@@ -82,7 +82,7 @@ struct WordHuntView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                TextField("Turkce cevirisini yaz...", text: $answer)
+                TextField("Türkçe çevirisini yaz...", text: $answer)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
@@ -107,7 +107,7 @@ struct WordHuntView: View {
                 if let feedback {
                     Text(feedback)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(feedback.hasPrefix("Dogru") ? BlitzTheme.success : BlitzTheme.danger)
+                        .foregroundStyle(feedback.hasPrefix("Doğru") ? BlitzTheme.success : BlitzTheme.danger)
                 }
 
                 Spacer()
@@ -124,7 +124,7 @@ struct WordHuntView: View {
         if word.matches(answer) {
             solved.insert(word.id)
             score += max(3 - currentAttempts, 1)
-            feedback = "Dogru: \(word.turkish)"
+            feedback = "Doğru: \(word.turkish)"
             selectedWord = nil
             return
         }
@@ -136,13 +136,13 @@ struct WordHuntView: View {
             feedback = "Hak bitti: \(word.turkish)"
             selectedWord = nil
         } else {
-            feedback = "Yanlis. Kalan hak: \(3 - (currentAttempts + 1))"
+            feedback = "Yanlış. Kalan hak: \(3 - (currentAttempts + 1))"
         }
         answer = ""
     }
 
     private func statusText(for word: VocabularyWord) -> String {
-        if solved.contains(word.id) { return "Dogru" }
+        if solved.contains(word.id) { return "Doğru" }
         if failed.contains(word.id) { return "Bitti" }
         return "EN"
     }

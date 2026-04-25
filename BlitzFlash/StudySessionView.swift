@@ -9,9 +9,35 @@ struct FreeStudyView: View {
     @State private var isShowingAnswer = false
     @State private var dragOffset = CGSize.zero
     @State private var isCardPressed = false
+    @State private var prompts: [CardPrompt]
+
+    init(words: [VocabularyWord]) {
+        self.words = words
+        _prompts = State(initialValue: words.map { CardPrompt(word: $0, startsWithEnglish: Bool.random()) })
+    }
+
+    private var currentPrompt: CardPrompt {
+        prompts[min(currentIndex, prompts.count - 1)]
+    }
 
     private var currentWord: VocabularyWord {
-        words[min(currentIndex, words.count - 1)]
+        currentPrompt.word
+    }
+
+    private var showingEnglish: Bool {
+        isShowingAnswer ? !currentPrompt.startsWithEnglish : currentPrompt.startsWithEnglish
+    }
+
+    private var languageLabel: String {
+        showingEnglish ? "English" : "Türkçe"
+    }
+
+    private var displayedWord: String {
+        showingEnglish ? currentWord.english : currentWord.turkish
+    }
+
+    private var displayedSentence: String {
+        showingEnglish ? currentWord.englishSentence : currentWord.turkishSentence
     }
 
     private var dragProgress: Double {
@@ -29,13 +55,13 @@ struct FreeStudyView: View {
             HStack {
                 StatPill(title: "Bildim", value: correct, color: BlitzTheme.success)
                 StatPill(title: "Bilemedim", value: wrong, color: BlitzTheme.danger)
-                StatPill(title: "Toplam", value: words.count, color: BlitzTheme.primary)
+                StatPill(title: "Toplam", value: prompts.count, color: BlitzTheme.primary)
             }
 
-            ProgressView(value: Double(currentIndex + 1), total: Double(words.count))
+            ProgressView(value: Double(currentIndex + 1), total: Double(prompts.count))
                 .tint(BlitzTheme.primary)
 
-            Text("\(currentIndex + 1) / \(words.count)")
+            Text("\(currentIndex + 1) / \(prompts.count)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(BlitzTheme.muted)
 
@@ -43,19 +69,19 @@ struct FreeStudyView: View {
 
             studyCard
 
-            Text("Karti acmak icin dokun. Saga Bildim, sola Bilemedim.")
+            Text("Kartı açmak için dokun. Sağa Bildim, sola Bilemedim.")
                 .font(.footnote)
                 .foregroundStyle(BlitzTheme.muted)
 
             Spacer()
 
             HStack(spacing: 12) {
-                StudyAction(title: "Bilemedim", icon: "xmark", tint: BlitzTheme.warm, darkText: true) {
+                StudyAction(title: "Bilemedim", icon: "arrow.counterclockwise", tint: BlitzTheme.danger) {
                     wrong += 1
                     nextCard()
                 }
 
-                StudyAction(title: "Bildim", icon: "checkmark", tint: BlitzTheme.secondary) {
+                StudyAction(title: "Bildim", icon: "bolt.fill", tint: BlitzTheme.success) {
                     correct += 1
                     nextCard()
                 }
@@ -69,27 +95,39 @@ struct FreeStudyView: View {
 
     private var studyCard: some View {
         ZStack {
-            VStack(spacing: 18) {
-                Text(isShowingAnswer ? "Turkce" : "English")
+            VStack(spacing: 0) {
+                Text(languageLabel)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary)
+                    .foregroundStyle(showingEnglish ? BlitzTheme.primary : BlitzTheme.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(isShowingAnswer ? BlitzTheme.secondary.opacity(0.2) : BlitzTheme.primary.opacity(0.18))
+                    .background(showingEnglish ? BlitzTheme.primary.opacity(0.18) : BlitzTheme.secondary.opacity(0.2))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .frame(height: 44)
+                    .frame(maxWidth: .infinity, alignment: .top)
 
-                Text(isShowingAnswer ? currentWord.turkish : currentWord.english)
+                Spacer(minLength: 12)
+
+                Text(displayedWord)
                     .font(.system(size: 42, weight: .black, design: .rounded))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(BlitzTheme.ink)
                     .shadow(color: activeGlow.opacity(0.24), radius: 18, x: 0, y: 0)
                     .contentTransition(.opacity)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.62)
+                    .frame(maxWidth: .infinity, minHeight: 118, alignment: .center)
 
-                Text(isShowingAnswer ? currentWord.turkishSentence : currentWord.englishSentence)
+                Spacer(minLength: 12)
+
+                Text(displayedSentence)
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(BlitzTheme.muted)
                     .contentTransition(.opacity)
+                    .lineLimit(4)
+                    .minimumScaleFactor(0.78)
+                    .frame(maxWidth: .infinity, minHeight: 86, alignment: .top)
             }
             .padding(24)
             .frame(maxWidth: .infinity, minHeight: 320)
@@ -101,6 +139,7 @@ struct FreeStudyView: View {
             .shadow(color: activeGlow.opacity(0.16), radius: 32, x: 0, y: 0)
             .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isCardPressed)
             .animation(.spring(response: 0.3, dampingFraction: 0.86), value: isShowingAnswer)
+            .animation(.spring(response: 0.3, dampingFraction: 0.86), value: currentIndex)
 
             swipeStamp(title: "BILDIM", icon: "checkmark", color: BlitzTheme.success)
                 .opacity(dragOffset.width > 0 ? dragProgress : 0)
@@ -192,9 +231,14 @@ struct FreeStudyView: View {
     private func nextCard() {
         withAnimation(.easeInOut(duration: 0.16)) {
             isShowingAnswer = false
-            currentIndex = (currentIndex + 1) % words.count
+            currentIndex = (currentIndex + 1) % prompts.count
         }
     }
+}
+
+private struct CardPrompt {
+    var word: VocabularyWord
+    var startsWithEnglish: Bool
 }
 
 struct StatPill: View {

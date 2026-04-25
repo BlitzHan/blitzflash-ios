@@ -6,10 +6,10 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 22) {
                     BrandHeader()
 
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                         ForEach(BlitzMode.allCases) { mode in
                             NavigationLink {
                                 destination(for: mode)
@@ -17,18 +17,6 @@ struct HomeView: View {
                                 ModeCard(mode: mode)
                             }
                             .buttonStyle(.plain)
-                        }
-                    }
-
-                    BlitzCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("\(words.count) BBC Essential kelime", systemImage: "books.vertical.fill")
-                                .font(.headline)
-                                .foregroundStyle(BlitzTheme.ink)
-
-                            Text("Her kartta Ingilizce kelime, Turkce anlam, ornek cumle ve ceviri bulunur. Veriler web uygulamasindaki kelime dosyalarindan native iOS'a tasindi.")
-                                .font(.subheadline)
-                                .foregroundStyle(BlitzTheme.muted)
                         }
                     }
                 }
@@ -58,39 +46,65 @@ struct HomeView: View {
 
 private struct BrandHeader: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                LightningGlyph(size: 28)
-                    .foregroundStyle(BlitzTheme.background)
-                    .frame(width: 48, height: 48)
-                    .background(BlitzTheme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .shadow(color: BlitzTheme.accent.opacity(0.45), radius: 16, x: 0, y: 0)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(BlitzTheme.accent)
+                        .frame(width: 58, height: 58)
+                        .shadow(color: BlitzTheme.accent.opacity(0.45), radius: 18, x: 0, y: 0)
 
-                Text("BlitzFlash")
-                    .font(.system(size: 42, weight: .black, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [BlitzTheme.primaryLight, BlitzTheme.primary, BlitzTheme.secondary],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                    LightningGlyph(size: 34)
+                        .foregroundStyle(BlitzTheme.background)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("BlitzFlash")
+                        .font(.system(size: 42, weight: .black, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [BlitzTheme.primaryLight, BlitzTheme.primary, BlitzTheme.secondary],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .shadow(color: BlitzTheme.primary.opacity(0.45), radius: 16, x: 0, y: 0)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+                        .shadow(color: BlitzTheme.primary.opacity(0.45), radius: 16, x: 0, y: 0)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    Text("Kelime ritmini seç.")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(BlitzTheme.accent)
+                }
             }
 
-            Text("Modunu sec, kelime ritmini baslat.")
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(BlitzTheme.accent)
-
-            Text("Ingilizce kelimeleri kart, sureli tahmin, cumle ve grid oyunu ile calis.")
-                .font(.subheadline)
-                .foregroundStyle(BlitzTheme.muted)
+            HStack(spacing: 8) {
+                MiniBadge(text: "Kart")
+                MiniBadge(text: "Tahmin")
+                MiniBadge(text: "Cümle")
+                MiniBadge(text: "Av")
+            }
         }
         .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.bottom, 2)
+    }
+}
+
+private struct MiniBadge: View {
+    var text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(BlitzTheme.primary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(BlitzTheme.primary.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(BlitzTheme.primary.opacity(0.18), lineWidth: 1)
+            }
     }
 }
 
@@ -99,6 +113,8 @@ private struct ModeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Spacer(minLength: 0)
+
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(iconGradient)
@@ -119,9 +135,23 @@ private struct ModeCard: View {
                 .font(.caption)
                 .foregroundStyle(BlitzTheme.muted)
                 .lineLimit(3)
+
+            Spacer(minLength: 0)
+
+            HStack {
+                Text("Başla")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(glowColor)
+
+                Spacer()
+
+                Image(systemName: "arrow.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(glowColor)
+            }
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 178, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(BlitzTheme.cardGradient)

@@ -22,9 +22,9 @@ struct TypingModeView: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack {
-                StatPill(title: "Dogru", value: correct, color: BlitzTheme.success)
-                StatPill(title: "Yanlis", value: wrong, color: BlitzTheme.danger)
-                StatPill(title: "Sure", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
+                StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
+                StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
+                StatPill(title: "Süre", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
             }
 
             if isFinished {
@@ -80,7 +80,7 @@ struct TypingModeView: View {
                 if let feedback {
                     Text(feedback)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(feedback.hasPrefix("Dogru") ? BlitzTheme.success : BlitzTheme.danger)
+                    .foregroundStyle(feedback.hasPrefix("Doğru") ? BlitzTheme.success : BlitzTheme.danger)
                 }
             }
 
@@ -139,10 +139,10 @@ struct TypingModeView: View {
 
         if currentWord.matches(answer) {
             correct += 1
-            feedback = "Dogru: \(currentWord.turkish)"
+            feedback = "Doğru: \(currentWord.turkish)"
         } else {
             wrong += 1
-            feedback = "Yanlis: \(currentWord.turkish)"
+            feedback = "Yanlış: \(currentWord.turkish)"
         }
 
         answer = ""
