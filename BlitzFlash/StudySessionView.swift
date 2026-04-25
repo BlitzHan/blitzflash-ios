@@ -7,9 +7,21 @@ struct FreeStudyView: View {
     @State private var correct = 0
     @State private var wrong = 0
     @State private var isShowingAnswer = false
+    @State private var dragOffset = CGSize.zero
+    @State private var isCardPressed = false
 
     private var currentWord: VocabularyWord {
         words[min(currentIndex, words.count - 1)]
+    }
+
+    private var dragProgress: Double {
+        min(abs(dragOffset.width) / 140, 1)
+    }
+
+    private var activeGlow: Color {
+        if dragOffset.width > 18 { return BlitzTheme.success }
+        if dragOffset.width < -18 { return BlitzTheme.danger }
+        return isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary
     }
 
     var body: some View {
@@ -29,47 +41,9 @@ struct FreeStudyView: View {
 
             Spacer()
 
-            Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                    isShowingAnswer.toggle()
-                }
-            } label: {
-                VStack(spacing: 18) {
-                    Text(isShowingAnswer ? "Turkce" : "English")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(isShowingAnswer ? BlitzTheme.secondary.opacity(0.2) : BlitzTheme.primary.opacity(0.18))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            studyCard
 
-                    Text(isShowingAnswer ? currentWord.turkish : currentWord.english)
-                        .font(.system(size: 42, weight: .black, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(BlitzTheme.ink)
-                        .shadow(color: (isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary).opacity(0.24), radius: 18, x: 0, y: 0)
-
-                    Text(isShowingAnswer ? currentWord.turkishSentence : currentWord.englishSentence)
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(BlitzTheme.muted)
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, minHeight: 320)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(BlitzTheme.cardGradient)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke((isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary).opacity(0.22), lineWidth: 1)
-                        }
-                )
-                .shadow(color: .black.opacity(0.55), radius: 24, x: 0, y: 16)
-                .shadow(color: (isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary).opacity(0.16), radius: 32, x: 0, y: 0)
-            }
-            .buttonStyle(.plain)
-
-            Text("Karti cevirmek icin dokun.")
+            Text("Karti acmak icin dokun. Saga Bildim, sola Bilemedim.")
                 .font(.footnote)
                 .foregroundStyle(BlitzTheme.muted)
 
@@ -93,8 +67,130 @@ struct FreeStudyView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private var studyCard: some View {
+        ZStack {
+            VStack(spacing: 18) {
+                Text(isShowingAnswer ? "Turkce" : "English")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(isShowingAnswer ? BlitzTheme.secondary.opacity(0.2) : BlitzTheme.primary.opacity(0.18))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                Text(isShowingAnswer ? currentWord.turkish : currentWord.english)
+                    .font(.system(size: 42, weight: .black, design: .rounded))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(BlitzTheme.ink)
+                    .shadow(color: activeGlow.opacity(0.24), radius: 18, x: 0, y: 0)
+                    .contentTransition(.opacity)
+
+                Text(isShowingAnswer ? currentWord.turkishSentence : currentWord.englishSentence)
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(BlitzTheme.muted)
+                    .contentTransition(.opacity)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, minHeight: 320)
+            .background(cardBackground)
+            .scaleEffect(isCardPressed ? 0.975 : 1)
+            .offset(dragOffset)
+            .rotationEffect(.degrees(Double(dragOffset.width / 18)))
+            .shadow(color: .black.opacity(0.55), radius: 24, x: 0, y: 16)
+            .shadow(color: activeGlow.opacity(0.16), radius: 32, x: 0, y: 0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isCardPressed)
+            .animation(.spring(response: 0.3, dampingFraction: 0.86), value: isShowingAnswer)
+
+            swipeStamp(title: "BILDIM", icon: "checkmark", color: BlitzTheme.success)
+                .opacity(dragOffset.width > 0 ? dragProgress : 0)
+                .rotationEffect(.degrees(-12))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(24)
+
+            swipeStamp(title: "BILEMEDIM", icon: "xmark", color: BlitzTheme.danger)
+                .opacity(dragOffset.width < 0 ? dragProgress : 0)
+                .rotationEffect(.degrees(12))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .padding(24)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                isCardPressed = true
+                isShowingAnswer.toggle()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    isCardPressed = false
+                }
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 12)
+                .onChanged { value in
+                    dragOffset = value.translation
+                }
+                .onEnded { value in
+                    let width = value.translation.width
+                    if width > 115 {
+                        correct += 1
+                        flingAndAdvance(toRight: true)
+                    } else if width < -115 {
+                        wrong += 1
+                        flingAndAdvance(toRight: false)
+                    } else {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            dragOffset = .zero
+                        }
+                    }
+                }
+        )
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(BlitzTheme.cardGradient)
+            .overlay(alignment: .top) {
+                LinearGradient(colors: [.clear, activeGlow.opacity(0.9), .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 2)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(activeGlow.opacity(0.26), lineWidth: 1)
+            }
+    }
+
+    private func swipeStamp(title: String, icon: String, color: Color) -> some View {
+        Label(title, systemImage: icon)
+            .font(.headline.weight(.black))
+            .foregroundStyle(color)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(color.opacity(0.85), lineWidth: 2)
+            }
+            .shadow(color: color.opacity(0.45), radius: 12, x: 0, y: 0)
+    }
+
+    private func flingAndAdvance(toRight: Bool) {
+        withAnimation(.easeIn(duration: 0.18)) {
+            dragOffset = CGSize(width: toRight ? 620 : -620, height: 42)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            nextCard()
+            dragOffset = CGSize(width: toRight ? -40 : 40, height: 0)
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                dragOffset = .zero
+            }
+        }
+    }
+
     private func nextCard() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(.easeInOut(duration: 0.16)) {
             isShowingAnswer = false
             currentIndex = (currentIndex + 1) % words.count
         }
