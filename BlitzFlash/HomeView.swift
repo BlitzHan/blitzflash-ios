@@ -33,11 +33,11 @@ struct HomeView: View {
     private func destination(for mode: BlitzMode) -> some View {
         switch mode {
         case .free:
-            FreeStudyView(words: Array(words.shuffled().prefix(40)))
+            FreeStudyView(words: words.shuffled())
         case .typing:
-            TypingModeView(words: Array(words.shuffled().prefix(80)))
+            TypingModeView(words: words.shuffled())
         case .sentence:
-            SentenceModeView(words: Array(words.shuffled().prefix(25)))
+            SentenceModeView(words: words.shuffled())
         case .hunt:
             WordHuntView(words: Array(words.shuffled().prefix(30)))
         }
