@@ -7,7 +7,8 @@ struct SentenceModeView: View {
     @State private var selectedAnswer: String?
     @State private var correct = 0
     @State private var wrong = 0
-    @State private var currentOptions: [String] = []
+    @State private var currentOptions: [VocabularyWord] = []
+    @State private var isAutoAdvancing = false
 
     private var currentWord: VocabularyWord {
         words[min(currentIndex, words.count - 1)]
@@ -39,22 +40,33 @@ struct SentenceModeView: View {
             }
 
             VStack(spacing: 10) {
-                ForEach(currentOptions, id: \.self) { option in
+                ForEach(currentOptions, id: \.id) { option in
                     Button {
-                        choose(option)
+                        choose(option.english)
                     } label: {
                         HStack(spacing: 12) {
-                            Text(option)
-                                .foregroundStyle(optionTextColor(option))
-                                .lineLimit(2)
-                                .minimumScaleFactor(0.86)
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(option.english)
+                                    .foregroundStyle(optionTextColor(option.english))
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.86)
+
+                                if selectedAnswer != nil {
+                                    Text(option.turkish)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(BlitzTheme.muted)
+                                        .lineLimit(2)
+                                        .minimumScaleFactor(0.84)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
+                            }
 
                             Spacer()
 
-                            if selectedAnswer == option {
-                                Image(systemName: option == currentWord.english ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(option == currentWord.english ? BlitzTheme.success : BlitzTheme.danger)
-                            } else if selectedAnswer != nil, option == currentWord.english {
+                            if selectedAnswer == option.english {
+                                Image(systemName: option.english == currentWord.english ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(option.english == currentWord.english ? BlitzTheme.success : BlitzTheme.danger)
+                            } else if selectedAnswer != nil, option.english == currentWord.english {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(BlitzTheme.success)
                             }
@@ -66,15 +78,15 @@ struct SentenceModeView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .background(optionBackground(option))
+                    .background(optionBackground(option.english))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(optionBorder(option), lineWidth: 1)
+                            .stroke(optionBorder(option.english), lineWidth: 1)
                     }
                     .overlay(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(optionAccent(option))
+                            .fill(optionAccent(option.english))
                             .frame(width: 4)
                     }
                     .disabled(selectedAnswer != nil)
@@ -90,7 +102,7 @@ struct SentenceModeView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(BlitzProminentButton(tint: selectedAnswer == nil ? BlitzTheme.dim : BlitzTheme.accent, darkText: selectedAnswer != nil))
-            .disabled(selectedAnswer == nil)
+            .disabled(selectedAnswer == nil || isAutoAdvancing)
 
             Spacer()
         }
@@ -119,23 +131,34 @@ struct SentenceModeView: View {
         } else {
             wrong += 1
         }
+        scheduleNextSentence()
     }
 
     private func goToNextSentence() {
+        isAutoAdvancing = false
         selectedAnswer = nil
         currentIndex = (currentIndex + 1) % words.count
         prepareOptions()
     }
 
     private func prepareOptions() {
-        var values = [currentWord.english]
+        var values = [currentWord]
         let distractors = words
             .filter { $0.id != currentWord.id }
             .shuffled()
             .prefix(3)
-            .map(\.english)
         values.append(contentsOf: distractors)
-        currentOptions = Array(Set(values)).shuffled()
+        currentOptions = values.shuffled()
+    }
+
+    private func scheduleNextSentence() {
+        isAutoAdvancing = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
+            guard isAutoAdvancing, selectedAnswer != nil else { return }
+            withAnimation(.easeInOut(duration: 0.22)) {
+                goToNextSentence()
+            }
+        }
     }
 
     private func optionBackground(_ option: String) -> AnyShapeStyle {
