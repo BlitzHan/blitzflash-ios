@@ -22,23 +22,28 @@ struct TypingModeView: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack {
-                StatPill(title: "Dogru", value: correct, color: BlitzTheme.secondary)
-                StatPill(title: "Yanlis", value: wrong, color: BlitzTheme.warm)
-                StatPill(title: "Sure", value: secondsLeft, color: BlitzTheme.primary)
+                StatPill(title: "Dogru", value: correct, color: BlitzTheme.success)
+                StatPill(title: "Yanlis", value: wrong, color: BlitzTheme.danger)
+                StatPill(title: "Sure", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
             }
 
             if isFinished {
                 resultPanel
             } else {
-                BlitzCard {
+                BlitzCard(glow: BlitzTheme.secondary) {
                     VStack(spacing: 14) {
                         Text("English")
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(BlitzTheme.primary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(BlitzTheme.primary.opacity(0.18))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                         Text(currentWord.english)
-                            .font(.largeTitle.weight(.bold))
+                            .font(.system(size: 42, weight: .black, design: .rounded))
                             .foregroundStyle(BlitzTheme.ink)
+                            .shadow(color: BlitzTheme.primary.opacity(0.24), radius: 18, x: 0, y: 0)
 
                         Text(currentWord.englishSentence)
                             .font(.body)
@@ -54,25 +59,35 @@ struct TypingModeView: View {
                     .submitLabel(.done)
                     .onSubmit(checkAnswer)
                     .padding(14)
-                    .background(.background)
+                    .foregroundStyle(BlitzTheme.ink)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(BlitzTheme.surface)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(BlitzTheme.primary.opacity(0.2), lineWidth: 1)
+                            }
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 Button("Kontrol Et", action: checkAnswer)
                     .font(.headline)
-                    .buttonStyle(.borderedProminent)
+                    .padding(.vertical, 13)
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(BlitzProminentButton(tint: BlitzTheme.secondary))
                     .frame(maxWidth: .infinity)
 
                 if let feedback {
                     Text(feedback)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(feedback.hasPrefix("Dogru") ? BlitzTheme.secondary : BlitzTheme.warm)
+                        .foregroundStyle(feedback.hasPrefix("Dogru") ? BlitzTheme.success : BlitzTheme.danger)
                 }
             }
 
             Spacer()
         }
         .padding(20)
-        .background(BlitzTheme.surface)
+        .blitzScreen()
         .navigationTitle("Yazarak Tahmin")
         .navigationBarTitleDisplayMode(.inline)
         .onReceive(timer) { _ in
@@ -85,7 +100,7 @@ struct TypingModeView: View {
     }
 
     private var resultPanel: some View {
-        BlitzCard {
+        BlitzCard(glow: BlitzTheme.accent) {
             VStack(spacing: 14) {
                 Image(systemName: "trophy.fill")
                     .font(.largeTitle)
@@ -109,7 +124,10 @@ struct TypingModeView: View {
                     isFinished = false
                     feedback = nil
                 }
-                .buttonStyle(.borderedProminent)
+                .font(.headline)
+                .padding(.vertical, 13)
+                .frame(maxWidth: .infinity)
+                .buttonStyle(BlitzProminentButton(tint: BlitzTheme.accent, darkText: true))
             }
             .frame(maxWidth: .infinity)
         }

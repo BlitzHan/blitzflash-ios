@@ -15,8 +15,8 @@ struct FreeStudyView: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack {
-                StatPill(title: "Bildim", value: correct, color: BlitzTheme.secondary)
-                StatPill(title: "Bilemedim", value: wrong, color: BlitzTheme.warm)
+                StatPill(title: "Bildim", value: correct, color: BlitzTheme.success)
+                StatPill(title: "Bilemedim", value: wrong, color: BlitzTheme.danger)
                 StatPill(title: "Toplam", value: words.count, color: BlitzTheme.primary)
             }
 
@@ -38,11 +38,16 @@ struct FreeStudyView: View {
                     Text(isShowingAnswer ? "Turkce" : "English")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(isShowingAnswer ? BlitzTheme.secondary.opacity(0.2) : BlitzTheme.primary.opacity(0.18))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                     Text(isShowingAnswer ? currentWord.turkish : currentWord.english)
-                        .font(.largeTitle.weight(.bold))
+                        .font(.system(size: 42, weight: .black, design: .rounded))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(BlitzTheme.ink)
+                        .shadow(color: (isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary).opacity(0.24), radius: 18, x: 0, y: 0)
 
                     Text(isShowingAnswer ? currentWord.turkishSentence : currentWord.englishSentence)
                         .font(.body)
@@ -51,9 +56,16 @@ struct FreeStudyView: View {
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, minHeight: 320)
-                .background(.background)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .shadow(color: .black.opacity(0.08), radius: 18, x: 0, y: 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(BlitzTheme.cardGradient)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke((isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary).opacity(0.22), lineWidth: 1)
+                        }
+                )
+                .shadow(color: .black.opacity(0.55), radius: 24, x: 0, y: 16)
+                .shadow(color: (isShowingAnswer ? BlitzTheme.secondary : BlitzTheme.primary).opacity(0.16), radius: 32, x: 0, y: 0)
             }
             .buttonStyle(.plain)
 
@@ -64,7 +76,7 @@ struct FreeStudyView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                StudyAction(title: "Bilemedim", icon: "xmark", tint: BlitzTheme.warm) {
+                StudyAction(title: "Bilemedim", icon: "xmark", tint: BlitzTheme.warm, darkText: true) {
                     wrong += 1
                     nextCard()
                 }
@@ -76,7 +88,7 @@ struct FreeStudyView: View {
             }
         }
         .padding(20)
-        .background(BlitzTheme.surface)
+        .blitzScreen()
         .navigationTitle("Serbest Mod")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -106,8 +118,15 @@ struct StatPill: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(BlitzTheme.surface.opacity(0.92))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(color.opacity(0.22), lineWidth: 1)
+                }
+        )
+        .shadow(color: color.opacity(0.12), radius: 12, x: 0, y: 0)
     }
 }
 
@@ -115,6 +134,7 @@ private struct StudyAction: View {
     var title: String
     var icon: String
     var tint: Color
+    var darkText = false
     var action: () -> Void
 
     var body: some View {
@@ -124,7 +144,6 @@ private struct StudyAction: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(tint)
+        .buttonStyle(BlitzProminentButton(tint: tint, darkText: darkText))
     }
 }

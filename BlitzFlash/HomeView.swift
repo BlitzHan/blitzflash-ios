@@ -38,7 +38,8 @@ struct HomeView: View {
                 }
                 .padding(20)
             }
-            .background(BlitzTheme.surface)
+            .scrollContentBackground(.hidden)
+            .blitzScreen()
             .navigationTitle("BlitzFlash")
         }
     }
@@ -52,19 +53,24 @@ struct HomeView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(BlitzTheme.primary)
 
-                        Text("Hizli, oyunlu, native")
-                            .font(.largeTitle.weight(.bold))
+                        Text("BlitzFlash")
+                            .font(.system(size: 42, weight: .black, design: .rounded))
                             .foregroundStyle(BlitzTheme.ink)
+                            .shadow(color: BlitzTheme.primary.opacity(0.35), radius: 16, x: 0, y: 0)
+
+                        Text("Hizli, oyunlu, native")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(BlitzTheme.accent)
                     }
 
                     Spacer()
 
-                    Image(systemName: "bolt.fill")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .background(BlitzTheme.primary)
+                    LightningGlyph(size: 30)
+                        .foregroundStyle(BlitzTheme.background)
+                        .frame(width: 54, height: 54)
+                        .background(BlitzTheme.accent)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .shadow(color: BlitzTheme.accent.opacity(0.45), radius: 16, x: 0, y: 0)
                 }
 
                 Text("Serbest kart calisma, 60 saniyelik yazarak tahmin, cumle tamamlama ve kelime avi modlariyla calismaya basla.")
@@ -79,7 +85,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(BlitzProminentButton(tint: BlitzTheme.primary))
             }
         }
     }
@@ -104,9 +110,16 @@ private struct ModeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Image(systemName: mode.icon)
-                .font(.title2)
-                .foregroundStyle(BlitzTheme.primary)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(iconGradient)
+                    .frame(width: 42, height: 42)
+                    .shadow(color: glowColor.opacity(0.28), radius: 14, x: 0, y: 0)
+
+                Image(systemName: mode.icon)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(mode == .hunt ? BlitzTheme.background : .white)
+            }
 
             Text(mode.title)
                 .font(.headline)
@@ -120,7 +133,36 @@ private struct ModeCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
-        .background(.background)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(BlitzTheme.cardGradient)
+                .overlay(alignment: .top) {
+                    LinearGradient(colors: [.clear, glowColor.opacity(0.8), .clear], startPoint: .leading, endPoint: .trailing)
+                        .frame(height: 2)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(glowColor.opacity(0.18), lineWidth: 1)
+                }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 10)
+    }
+
+    private var glowColor: Color {
+        switch mode {
+        case .free: BlitzTheme.primary
+        case .typing: BlitzTheme.secondary
+        case .sentence: BlitzTheme.success
+        case .hunt: BlitzTheme.accent
+        }
+    }
+
+    private var iconGradient: LinearGradient {
+        LinearGradient(
+            colors: [glowColor, glowColor.opacity(0.68)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }

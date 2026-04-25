@@ -16,7 +16,7 @@ struct WordHuntView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
-                    StatPill(title: "Bitti", value: solved.count + failed.count, color: BlitzTheme.secondary)
+                    StatPill(title: "Bitti", value: solved.count + failed.count, color: BlitzTheme.success)
                     StatPill(title: "Toplam", value: words.count, color: BlitzTheme.muted)
                 }
 
@@ -42,6 +42,11 @@ struct WordHuntView: View {
                             .padding(8)
                             .background(tileColor(for: word))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(tileBorder(for: word), lineWidth: 1)
+                            }
+                            .shadow(color: tileBorder(for: word).opacity(0.18), radius: 10, x: 0, y: 0)
                         }
                         .buttonStyle(.plain)
                         .disabled(solved.contains(word.id) || failed.contains(word.id))
@@ -50,7 +55,8 @@ struct WordHuntView: View {
             }
             .padding(20)
         }
-        .background(BlitzTheme.surface)
+        .scrollContentBackground(.hidden)
+        .blitzScreen()
         .navigationTitle("Kelime Avi")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedWord) { word in
@@ -61,14 +67,20 @@ struct WordHuntView: View {
     private func huntSheet(for word: VocabularyWord) -> some View {
         NavigationStack {
             VStack(spacing: 18) {
-                Text(word.english)
-                    .font(.largeTitle.weight(.bold))
-                    .foregroundStyle(BlitzTheme.ink)
+                BlitzCard(glow: BlitzTheme.accent) {
+                    VStack(spacing: 14) {
+                        Text(word.english)
+                            .font(.system(size: 42, weight: .black, design: .rounded))
+                            .foregroundStyle(BlitzTheme.ink)
+                            .shadow(color: BlitzTheme.accent.opacity(0.22), radius: 18, x: 0, y: 0)
 
-                Text(word.englishSentence)
-                    .font(.body)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(BlitzTheme.muted)
+                        Text(word.englishSentence)
+                            .font(.body)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(BlitzTheme.muted)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
 
                 TextField("Turkce cevirisini yaz...", text: $answer)
                     .textInputAutocapitalization(.never)
@@ -76,23 +88,32 @@ struct WordHuntView: View {
                     .submitLabel(.done)
                     .onSubmit { submit(word) }
                     .padding(14)
+                    .foregroundStyle(BlitzTheme.ink)
                     .background(BlitzTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(BlitzTheme.accent.opacity(0.25), lineWidth: 1)
+                    }
 
                 Button("Kontrol Et") {
                     submit(word)
                 }
-                .buttonStyle(.borderedProminent)
+                .font(.headline)
+                .padding(.vertical, 13)
+                .frame(maxWidth: .infinity)
+                .buttonStyle(BlitzProminentButton(tint: BlitzTheme.accent, darkText: true))
 
                 if let feedback {
                     Text(feedback)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(feedback.hasPrefix("Dogru") ? BlitzTheme.secondary : BlitzTheme.warm)
+                        .foregroundStyle(feedback.hasPrefix("Dogru") ? BlitzTheme.success : BlitzTheme.danger)
                 }
 
                 Spacer()
             }
             .padding(20)
+            .blitzScreen()
             .navigationTitle("Ceviri")
             .navigationBarTitleDisplayMode(.inline)
         }
@@ -127,8 +148,14 @@ struct WordHuntView: View {
     }
 
     private func tileColor(for word: VocabularyWord) -> Color {
-        if solved.contains(word.id) { return BlitzTheme.secondary.opacity(0.2) }
-        if failed.contains(word.id) { return BlitzTheme.warm.opacity(0.2) }
-        return Color(uiColor: .systemBackground)
+        if solved.contains(word.id) { return BlitzTheme.success.opacity(0.18) }
+        if failed.contains(word.id) { return BlitzTheme.danger.opacity(0.2) }
+        return BlitzTheme.surface
+    }
+
+    private func tileBorder(for word: VocabularyWord) -> Color {
+        if solved.contains(word.id) { return BlitzTheme.success.opacity(0.4) }
+        if failed.contains(word.id) { return BlitzTheme.danger.opacity(0.4) }
+        return BlitzTheme.primary.opacity(0.12)
     }
 }
