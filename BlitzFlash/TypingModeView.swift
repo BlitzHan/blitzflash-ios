@@ -11,7 +11,8 @@ struct TypingModeView: View {
     @State private var secondsLeft = 60
     @State private var hasStarted = false
     @State private var isFinished = false
-    @State private var feedback: String?
+    @State private var feedback: TypingFeedback?
+    @State private var isResolvingAnswer = false
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -53,7 +54,7 @@ struct TypingModeView: View {
                     .frame(maxWidth: .infinity, minHeight: 220)
                 }
 
-                TextField("Ceviriyi yaz...", text: $answer)
+                TextField("Çeviriyi yaz...", text: $answer)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
@@ -69,6 +70,7 @@ struct TypingModeView: View {
                             }
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .disabled(isResolvingAnswer)
 
                 Button("Kontrol Et", action: checkAnswer)
                     .font(.headline)
@@ -76,11 +78,11 @@ struct TypingModeView: View {
                     .frame(maxWidth: .infinity)
                     .buttonStyle(BlitzProminentButton(tint: BlitzTheme.secondary))
                     .frame(maxWidth: .infinity)
+                    .disabled(isResolvingAnswer || answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 if let feedback {
-                    Text(feedback)
-                        .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(feedback.hasPrefix("Doğru") ? BlitzTheme.success : BlitzTheme.danger)
+                    feedbackPanel(feedback)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
 
@@ -123,6 +125,7 @@ struct TypingModeView: View {
                     hasStarted = false
                     isFinished = false
                     feedback = nil
+                    isResolvingAnswer = false
                 }
                 .font(.headline)
                 .padding(.vertical, 13)
@@ -134,18 +137,72 @@ struct TypingModeView: View {
     }
 
     private func checkAnswer() {
-        guard !isFinished else { return }
+        guard !isFinished, !isResolvingAnswer else { return }
+        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAnswer.isEmpty else { return }
         hasStarted = true
 
-        if currentWord.matches(answer) {
+        let answeredWord = currentWord
+        let isCorrect = answeredWord.matches(trimmedAnswer)
+        isResolvingAnswer = true
+
+        if isCorrect {
             correct += 1
-            feedback = "Doğru: \(currentWord.turkish)"
         } else {
             wrong += 1
-            feedback = "Yanlış: \(currentWord.turkish)"
+        }
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+            feedback = TypingFeedback(isCorrect: isCorrect, english: answeredWord.english, turkish: answeredWord.turkish)
         }
 
         answer = ""
-        currentIndex = (currentIndex + 1) % words.count
+
+        let delay = isCorrect ? 1.1 : 2.35
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard isResolvingAnswer else { return }
+            withAnimation(.easeOut(duration: 0.18)) {
+                feedback = nil
+            }
+            currentIndex = (currentIndex + 1) % words.count
+            isResolvingAnswer = false
+        }
     }
+
+    private func feedbackPanel(_ feedback: TypingFeedback) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: feedback.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .font(.title2)
+                .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(feedback.isCorrect ? "Doğru cevap" : "Doğru çeviri")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
+
+                Text("\(feedback.english) = \(feedback.turkish)")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(BlitzTheme.ink)
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.82)
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(BlitzTheme.surfaceLight.opacity(0.9))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke((feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger).opacity(0.38), lineWidth: 1)
+                }
+        )
+    }
+}
+
+private struct TypingFeedback {
+    let isCorrect: Bool
+    let english: String
+    let turkish: String
 }
