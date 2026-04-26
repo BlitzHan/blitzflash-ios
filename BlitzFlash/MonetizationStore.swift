@@ -4,8 +4,8 @@ import SwiftUI
 
 @MainActor
 final class MonetizationStore: ObservableObject {
-    static let weeklyProductID = "com.blitzhanlabs.BlitzFlash.premium.weekly"
-    static let monthlyProductID = "com.blitzhanlabs.BlitzFlash.premium.monthly"
+    static let weeklyProductID = "com.blitzhanlabs.BlitzFlash.plus.weekly"
+    static let monthlyProductID = "com.blitzhanlabs.BlitzFlash.plus.monthly"
     static let lifetimeProductID = "com.blitzhanlabs.BlitzFlash.premium.lifetime"
 
     static let productIDs = [

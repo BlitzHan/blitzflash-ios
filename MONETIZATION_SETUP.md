@@ -22,8 +22,8 @@ Not: Gerçek para kazanmak için App Store Connect ve AdMob tarafında aşağıd
 
 | Ürün Adı | Tür | Product ID |
 | --- | --- | --- |
-| Haftalık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.premium.weekly` |
-| Aylık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.premium.monthly` |
+| Haftalık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.plus.weekly` |
+| Aylık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.plus.monthly` |
 | Ömür Boyu Plus | Tek seferlik satın alma | `com.blitzhanlabs.BlitzFlash.premium.lifetime` |
 
 Çok önemli: `Product ID` değerlerini birebir aynı yaz. Harf, nokta veya büyük/küçük harf farkı olursa uygulama ürünleri bulamaz.
