@@ -11,6 +11,7 @@ struct WordHuntView: View {
     @State private var solved: Set<UUID> = []
     @State private var failed: Set<UUID> = []
     @State private var attempts: [UUID: Int] = [:]
+    @State private var prompts: [UUID: WordHuntPrompt] = [:]
     @State private var score = 0
     @State private var feedback: String?
     @State private var isFinished = false
@@ -32,19 +33,21 @@ struct WordHuntView: View {
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                             ForEach(words) { word in
+                                let prompt = prompt(for: word)
+
                                 Button {
                                     selectedWord = word
                                     answer = ""
                                     feedback = nil
                                 } label: {
                                     VStack(spacing: 8) {
-                                        Text(word.english)
+                                        Text(prompt.questionText(for: word))
                                             .font(.subheadline.weight(.bold))
                                             .multilineTextAlignment(.center)
                                             .foregroundStyle(BlitzTheme.ink)
                                             .lineLimit(2)
 
-                                        Text(statusText(for: word))
+                                        Text(statusText(for: word, prompt: prompt))
                                             .font(.caption2.weight(.semibold))
                                             .foregroundStyle(BlitzTheme.muted)
                                     }
@@ -81,22 +84,29 @@ struct WordHuntView: View {
         .blitzScreen()
         .navigationTitle("Kelime Avı")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            preparePromptsIfNeeded()
+        }
         .sheet(item: $selectedWord) { word in
             huntSheet(for: word)
         }
     }
 
     private func huntSheet(for word: VocabularyWord) -> some View {
-        NavigationStack {
+        let prompt = prompt(for: word)
+
+        return NavigationStack {
             VStack(spacing: 18) {
                 BlitzCard(glow: BlitzTheme.accent) {
                     VStack(spacing: 14) {
-                        Text(word.english)
+                        Text(prompt.questionText(for: word))
                             .font(.system(size: 42, weight: .black, design: .rounded))
+                            .minimumScaleFactor(0.58)
+                            .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.ink)
                             .shadow(color: BlitzTheme.accent.opacity(0.22), radius: 18, x: 0, y: 0)
 
-                        Text(word.englishSentence)
+                        Text(prompt.sentenceText(for: word))
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.muted)
@@ -108,7 +118,7 @@ struct WordHuntView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                TextField("Türkçe çevirisini yaz...", text: $answer)
+                TextField(prompt.placeholder, text: $answer)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
@@ -147,10 +157,12 @@ struct WordHuntView: View {
 
     private func submit(_ word: VocabularyWord) {
         let currentAttempts = attempts[word.id, default: 0]
-        if word.strictlyMatches(answer) {
+        let prompt = prompt(for: word)
+
+        if prompt.matches(answer, word: word) {
             solved.insert(word.id)
             score += scoreForCorrectAnswer(afterWrongAttempts: currentAttempts)
-            feedback = "Doğru: \(word.turkish)"
+            feedback = "Doğru: \(prompt.answerText(for: word))"
             selectedWord = nil
             return
         }
@@ -159,7 +171,7 @@ struct WordHuntView: View {
         if currentAttempts + 1 >= 3 {
             failed.insert(word.id)
             score -= 3
-            feedback = "Hak bitti: \(word.turkish)"
+            feedback = "Hak bitti: \(prompt.answerText(for: word))"
             selectedWord = nil
         } else {
             feedback = "Yanlış. Kalan hak: \(3 - (currentAttempts + 1))"
@@ -194,6 +206,7 @@ struct WordHuntView: View {
         solved = []
         failed = []
         attempts = [:]
+        prompts = randomPrompts()
         score = 0
         feedback = nil
         isFinished = false
@@ -258,10 +271,27 @@ struct WordHuntView: View {
         date.formatted(.dateTime.hour().minute())
     }
 
-    private func statusText(for word: VocabularyWord) -> String {
+    private func preparePromptsIfNeeded() {
+        guard prompts.isEmpty else { return }
+        prompts = randomPrompts()
+    }
+
+    private func randomPrompts() -> [UUID: WordHuntPrompt] {
+        let mixedPrompts = words.indices
+            .map { $0.isMultiple(of: 2) ? WordHuntPrompt.englishToTurkish : .turkishToEnglish }
+            .shuffled()
+
+        return Dictionary(uniqueKeysWithValues: zip(words.map(\.id), mixedPrompts))
+    }
+
+    private func prompt(for word: VocabularyWord) -> WordHuntPrompt {
+        prompts[word.id, default: .englishToTurkish]
+    }
+
+    private func statusText(for word: VocabularyWord, prompt: WordHuntPrompt) -> String {
         if solved.contains(word.id) { return "Doğru" }
         if failed.contains(word.id) { return "Bitti" }
-        return "EN"
+        return prompt.label
     }
 
     private func tileColor(for word: VocabularyWord) -> Color {
@@ -277,10 +307,65 @@ struct WordHuntView: View {
     }
 }
 
+private enum WordHuntPrompt {
+    case englishToTurkish
+    case turkishToEnglish
+
+    var label: String {
+        switch self {
+        case .englishToTurkish: "EN"
+        case .turkishToEnglish: "TR"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .englishToTurkish: "Türkçe çevirisini yaz..."
+        case .turkishToEnglish: "İngilizce karşılığını yaz..."
+        }
+    }
+
+    func questionText(for word: VocabularyWord) -> String {
+        switch self {
+        case .englishToTurkish: word.english
+        case .turkishToEnglish: word.turkish
+        }
+    }
+
+    func sentenceText(for word: VocabularyWord) -> String {
+        switch self {
+        case .englishToTurkish: word.englishSentence
+        case .turkishToEnglish: word.turkishSentence
+        }
+    }
+
+    func answerText(for word: VocabularyWord) -> String {
+        switch self {
+        case .englishToTurkish: word.turkish
+        case .turkishToEnglish: word.english
+        }
+    }
+
+    func matches(_ answer: String, word: VocabularyWord) -> Bool {
+        switch self {
+        case .englishToTurkish:
+            word.strictlyMatchesTurkish(answer)
+        case .turkishToEnglish:
+            word.strictlyMatchesEnglish(answer)
+        }
+    }
+}
+
 private extension VocabularyWord {
-    func strictlyMatches(_ answer: String) -> Bool {
+    func strictlyMatchesTurkish(_ answer: String) -> Bool {
         let normalized = answer.foldedForAnswer
         guard !normalized.isEmpty else { return false }
         return acceptedAnswers.contains(normalized) || turkish.foldedForAnswer == normalized
+    }
+
+    func strictlyMatchesEnglish(_ answer: String) -> Bool {
+        let normalized = answer.foldedForAnswer
+        guard !normalized.isEmpty else { return false }
+        return english.foldedForAnswer == normalized
     }
 }
