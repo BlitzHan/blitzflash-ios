@@ -7,6 +7,7 @@ final class MonetizationStore: ObservableObject {
     static let weeklyProductID = "com.blitzhanlabs.BlitzFlash.plus.weekly"
     static let monthlyProductID = "com.blitzhanlabs.BlitzFlash.plus.monthly"
     static let lifetimeProductID = "com.blitzhanlabs.BlitzFlash.premium.lifetime"
+    static let adsEnabled = false
 
     static let productIDs = [
         weeklyProductID,
@@ -128,7 +129,7 @@ struct AdSlotView: View {
     var placement: String
 
     var body: some View {
-        if !monetization.isPremium {
+        if MonetizationStore.adsEnabled && !monetization.isPremium {
             HStack(spacing: 10) {
                 Image(systemName: "bolt.horizontal.fill")
                     .font(.headline.weight(.black))
@@ -222,12 +223,37 @@ struct PremiumPaywallView: View {
                     }
 
                     if monetization.products.isEmpty {
+#if DEBUG
+                        VStack(spacing: 10) {
+                            previewPlanRow(
+                                title: "Haftalık Plus",
+                                subtitle: "Kısa süreli reklamsız kullanım",
+                                price: "₺24,99"
+                            )
+                            previewPlanRow(
+                                title: "Aylık Plus",
+                                subtitle: "Düzenli çalışma için reklamsız kullanım",
+                                price: "₺89,99"
+                            )
+                            previewPlanRow(
+                                title: "Ömür Boyu Plus",
+                                subtitle: "Tek ödeme, kalıcı reklamsız kullanım",
+                                price: "₺149"
+                            )
+
+                            Text("Geliştirici önizlemesi. TestFlight/App Store sürümünde gerçek ürünler Apple üzerinden gelir.")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(BlitzTheme.muted)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+#else
                         BlitzCard(glow: BlitzTheme.accent) {
                             Text(monetization.isLoading ? "Seçenekler yükleniyor..." : "Satın alma seçenekleri App Store Connect ürünleri bağlanınca burada görünecek.")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(BlitzTheme.muted)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
+#endif
                     }
 
                     if let errorMessage = monetization.errorMessage {
@@ -289,4 +315,36 @@ struct PremiumPaywallView: View {
         default: product.description
         }
     }
+
+#if DEBUG
+    private func previewPlanRow(title: String, subtitle: String, price: String) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(BlitzTheme.ink)
+
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BlitzTheme.muted)
+            }
+
+            Spacer()
+
+            Text(price)
+                .font(.headline.weight(.black))
+                .foregroundStyle(BlitzTheme.accent)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(BlitzTheme.cardGradient)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(BlitzTheme.accent.opacity(0.2), lineWidth: 1)
+                }
+        )
+    }
+#endif
 }
