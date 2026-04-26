@@ -52,13 +52,22 @@ struct WordHuntView: View {
                                             .foregroundStyle(BlitzTheme.ink)
                                             .lineLimit(2)
 
+                                        if isCompleted(word) {
+                                            Text(prompt.answerText(for: word))
+                                                .font(.caption.weight(.semibold))
+                                                .multilineTextAlignment(.center)
+                                                .foregroundStyle(BlitzTheme.ink.opacity(0.86))
+                                                .lineLimit(2)
+                                                .minimumScaleFactor(0.78)
+                                        }
+
                                         Text(statusText(for: word, prompt: prompt))
                                             .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(BlitzTheme.muted)
+                                            .foregroundStyle(statusColor(for: word, prompt: prompt))
                                     }
-                                    .frame(maxWidth: .infinity, minHeight: 86)
+                                    .frame(maxWidth: .infinity, minHeight: isCompleted(word) ? 112 : 86)
                                     .padding(8)
-                                    .background(tileColor(for: word))
+                                    .background(tileBackground(for: word))
                                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                                     .overlay {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -299,20 +308,58 @@ struct WordHuntView: View {
     }
 
     private func statusText(for word: VocabularyWord, prompt: WordHuntPrompt) -> String {
-        if solved.contains(word.id) { return "Doğru" }
-        if failed.contains(word.id) { return "Bitti" }
+        if solved.contains(word.id) {
+            switch attempts[word.id, default: 0] {
+            case 0: return "İlk hak"
+            case 1: return "2. hak"
+            default: return "3. hak"
+            }
+        }
+        if failed.contains(word.id) { return "Bilemedin" }
         return prompt.label
     }
 
-    private func tileColor(for word: VocabularyWord) -> Color {
-        if solved.contains(word.id) { return BlitzTheme.success.opacity(0.18) }
-        if failed.contains(word.id) { return BlitzTheme.danger.opacity(0.2) }
-        return BlitzTheme.surface
+    private func statusColor(for word: VocabularyWord, prompt: WordHuntPrompt) -> Color {
+        if solved.contains(word.id) {
+            return attempts[word.id, default: 0] == 0 ? BlitzTheme.success : BlitzTheme.accent
+        }
+        if failed.contains(word.id) { return BlitzTheme.danger }
+        return BlitzTheme.muted
+    }
+
+    private func isCompleted(_ word: VocabularyWord) -> Bool {
+        solved.contains(word.id) || failed.contains(word.id)
+    }
+
+    private func tileBackground(for word: VocabularyWord) -> AnyShapeStyle {
+        if solved.contains(word.id), attempts[word.id, default: 0] == 0 {
+            return AnyShapeStyle(LinearGradient(
+                colors: [BlitzTheme.success.opacity(0.28), BlitzTheme.surfaceLight.opacity(0.92)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        }
+        if solved.contains(word.id) {
+            return AnyShapeStyle(LinearGradient(
+                colors: [BlitzTheme.success.opacity(0.2), BlitzTheme.accent.opacity(0.3), BlitzTheme.surfaceLight.opacity(0.92)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        }
+        if failed.contains(word.id) {
+            return AnyShapeStyle(LinearGradient(
+                colors: [BlitzTheme.danger.opacity(0.28), BlitzTheme.surfaceLight.opacity(0.9)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        }
+        return AnyShapeStyle(BlitzTheme.surface)
     }
 
     private func tileBorder(for word: VocabularyWord) -> Color {
-        if solved.contains(word.id) { return BlitzTheme.success.opacity(0.4) }
-        if failed.contains(word.id) { return BlitzTheme.danger.opacity(0.4) }
+        if solved.contains(word.id), attempts[word.id, default: 0] == 0 { return BlitzTheme.success.opacity(0.55) }
+        if solved.contains(word.id) { return BlitzTheme.accent.opacity(0.58) }
+        if failed.contains(word.id) { return BlitzTheme.danger.opacity(0.58) }
         return BlitzTheme.primary.opacity(0.12)
     }
 }
