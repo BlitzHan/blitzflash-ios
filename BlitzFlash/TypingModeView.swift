@@ -72,12 +72,31 @@ struct TypingModeView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .disabled(isResolvingAnswer)
 
-                Button("Kontrol Et", action: checkAnswer)
-                    .font(.headline)
-                    .padding(.vertical, 13)
+                Button(action: checkAnswer) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(BlitzTheme.accent)
+                                .frame(width: 34, height: 34)
+
+                            Image(systemName: "bolt.fill")
+                                .font(.headline.weight(.black))
+                                .foregroundStyle(BlitzTheme.background)
+                        }
+
+                        Text("Kontrol Et")
+                            .font(.headline.weight(.black))
+
+                        Spacer()
+
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.title3.weight(.bold))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
-                    .buttonStyle(BlitzProminentButton(tint: BlitzTheme.secondary))
-                    .frame(maxWidth: .infinity)
+                }
+                    .buttonStyle(BlitzProminentButton(tint: answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? BlitzTheme.dim : BlitzTheme.secondary))
                     .disabled(isResolvingAnswer || answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 if let feedback {

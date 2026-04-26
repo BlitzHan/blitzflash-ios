@@ -39,7 +39,7 @@ struct HomeView: View {
         case .sentence:
             SentenceModeView(words: words.shuffled())
         case .hunt:
-            WordHuntView(words: Array(words.shuffled().prefix(30)))
+            WordHuntView(words: Array(words.shuffled().prefix(15)))
         }
     }
 }
