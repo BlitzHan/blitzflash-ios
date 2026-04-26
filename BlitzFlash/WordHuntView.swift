@@ -137,13 +137,12 @@ struct WordHuntView: View {
                             .stroke(BlitzTheme.accent.opacity(0.25), lineWidth: 1)
                     }
 
-                Button("Kontrol Et") {
+                Button {
                     submit(word)
+                } label: {
+                    BlitzCheckButtonLabel(tint: BlitzTheme.accent)
                 }
-                .font(.headline)
-                .padding(.vertical, 13)
-                .frame(maxWidth: .infinity)
-                .buttonStyle(BlitzProminentButton(tint: BlitzTheme.accent, darkText: true))
+                .buttonStyle(BlitzCheckButtonStyle(tint: BlitzTheme.accent))
 
                 if let feedback {
                     Text(feedback)

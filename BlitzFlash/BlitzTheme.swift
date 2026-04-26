@@ -187,6 +187,79 @@ struct BlitzProminentButton: ButtonStyle {
     }
 }
 
+struct BlitzCheckButtonStyle: ButtonStyle {
+    var tint: Color = BlitzTheme.accent
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline.weight(.black))
+            .foregroundStyle(isEnabled ? BlitzTheme.ink : BlitzTheme.dim)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                BlitzTheme.surfaceLight.opacity(isEnabled ? 0.96 : 0.58),
+                                BlitzTheme.surface.opacity(isEnabled ? 0.98 : 0.72)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [.clear, tint.opacity(isEnabled ? 0.86 : 0.2), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(height: 2)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(tint.opacity(isEnabled ? 0.34 : 0.12), lineWidth: 1)
+            }
+            .shadow(color: tint.opacity(isEnabled ? (configuration.isPressed ? 0.16 : 0.28) : 0), radius: configuration.isPressed ? 10 : 18, x: 0, y: 0)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.spring(response: 0.24, dampingFraction: 0.82), value: configuration.isPressed)
+            .animation(.easeInOut(duration: 0.18), value: isEnabled)
+    }
+}
+
+struct BlitzCheckButtonLabel: View {
+    var title: String = "Kontrol Et"
+    var tint: Color = BlitzTheme.accent
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.18))
+                    .frame(width: 34, height: 34)
+
+                Image(systemName: "bolt.fill")
+                    .font(.headline.weight(.black))
+                    .foregroundStyle(tint)
+            }
+
+            Text(title)
+
+            Spacer()
+
+            Image(systemName: "arrow.up.right")
+                .font(.subheadline.weight(.black))
+                .foregroundStyle(tint)
+                .padding(8)
+                .background(tint.opacity(0.12))
+                .clipShape(Circle())
+        }
+    }
+}
+
 extension View {
     func blitzScreen() -> some View {
         background(BlitzBackground())
