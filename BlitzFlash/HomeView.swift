@@ -50,7 +50,8 @@ private struct BrandHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 14) {
-                LightningBadge()
+                BlitzLogoMark(size: 64, cornerRadius: 16)
+                    .shadow(color: BlitzTheme.accent.opacity(0.3), radius: 18, x: 0, y: 0)
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("BlitzFlash")
@@ -74,26 +75,6 @@ private struct BrandHeader: View {
 
                 Spacer(minLength: 0)
             }
-        }
-    }
-}
-
-private struct LightningBadge: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [BlitzTheme.accent, BlitzTheme.secondary],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 58, height: 58)
-                .shadow(color: BlitzTheme.accent.opacity(0.42), radius: 18, x: 0, y: 0)
-
-            LightningGlyph(size: 34)
-                .foregroundStyle(BlitzTheme.background)
         }
     }
 }
