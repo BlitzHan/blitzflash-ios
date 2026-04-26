@@ -8,11 +8,13 @@ struct TypingModeView: View {
     @State private var answer = ""
     @State private var correct = 0
     @State private var wrong = 0
+    @State private var score = 0
     @State private var secondsLeft = 60
     @State private var hasStarted = false
     @State private var isFinished = false
     @State private var feedback: TypingFeedback?
     @State private var isResolvingAnswer = false
+    @State private var finishedAt = Date()
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -23,6 +25,7 @@ struct TypingModeView: View {
     var body: some View {
         VStack(spacing: 18) {
             HStack {
+                StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
                 StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
                 StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
                 StatPill(title: "Süre", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
@@ -113,9 +116,9 @@ struct TypingModeView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onReceive(timer) { _ in
             guard hasStarted, !isFinished else { return }
-            secondsLeft -= 1
+            secondsLeft = max(secondsLeft - 1, 0)
             if secondsLeft <= 0 {
-                isFinished = true
+                finishGame()
             }
         }
     }
@@ -124,14 +127,23 @@ struct TypingModeView: View {
         BlitzCard(glow: BlitzTheme.accent) {
             VStack(spacing: 14) {
                 Image(systemName: "trophy.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(BlitzTheme.warm)
+                    .font(.system(size: 44, weight: .black))
+                    .foregroundStyle(BlitzTheme.accent)
 
-                Text("Skorun \(correct)")
-                    .font(.largeTitle.weight(.bold))
+                Text("Yazarak Tahmin Sonucu")
+                    .font(.title2.weight(.black))
                     .foregroundStyle(BlitzTheme.ink)
 
-                Text("\(correct) dogru, \(wrong) yanlis")
+                Text("\(formattedDate(finishedAt)) • \(formattedTime(finishedAt))")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BlitzTheme.muted)
+
+                Text("\(score) puan")
+                    .font(.system(size: 48, weight: .black, design: .rounded))
+                    .foregroundStyle(score >= 0 ? BlitzTheme.success : BlitzTheme.danger)
+                    .shadow(color: (score >= 0 ? BlitzTheme.success : BlitzTheme.danger).opacity(0.24), radius: 18, x: 0, y: 0)
+
+                Text("\(correct) doğru, \(wrong) yanlış")
                     .font(.body)
                     .foregroundStyle(BlitzTheme.muted)
 
@@ -140,11 +152,13 @@ struct TypingModeView: View {
                     answer = ""
                     correct = 0
                     wrong = 0
+                    score = 0
                     secondsLeft = 60
                     hasStarted = false
                     isFinished = false
                     feedback = nil
                     isResolvingAnswer = false
+                    finishedAt = Date()
                 }
                 .font(.headline)
                 .padding(.vertical, 13)
@@ -167,8 +181,10 @@ struct TypingModeView: View {
 
         if isCorrect {
             correct += 1
+            score += 5
         } else {
             wrong += 1
+            score -= 3
         }
 
         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
@@ -216,6 +232,34 @@ struct TypingModeView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke((feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger).opacity(0.38), lineWidth: 1)
                 }
+        )
+    }
+
+    private func finishGame() {
+        finishedAt = Date()
+        isFinished = true
+        isResolvingAnswer = false
+        feedback = nil
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        date.formatted(
+            Date.FormatStyle
+                .dateTime
+                .locale(Locale(identifier: "tr_TR"))
+                .day()
+                .month(.wide)
+                .year()
+        )
+    }
+
+    private func formattedTime(_ date: Date) -> String {
+        date.formatted(
+            Date.FormatStyle
+                .dateTime
+                .locale(Locale(identifier: "tr_TR"))
+                .hour()
+                .minute()
         )
     }
 }
