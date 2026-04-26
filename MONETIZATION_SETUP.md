@@ -1,39 +1,82 @@
-# BlitzFlash Monetization Setup
+# BlitzFlash Para Kazanma Kurulumu
 
-## App Store Connect Products
+Bu dosya, BlitzFlash'i ücretsiz yayınlayıp reklamlardan gelir elde etmek ve ödeme yapan kullanıcılara reklamsız kullanım sunmak için izleyeceğin basit yol haritasıdır.
 
-Create these in-app purchase products in App Store Connect.
+## Şu An Kodda Hazır Olanlar
 
-| Product | Type | Product ID |
+- Uygulama ücretsiz kullanılabilir.
+- Reklam alanları hazırlandı.
+- Plus alanı hazırlandı.
+- Haftalık, aylık ve ömür boyu satın alma altyapısı hazırlandı.
+- Plus satın alan kullanıcı reklam görmeyecek şekilde altyapı kuruldu.
+
+Not: Gerçek para kazanmak için App Store Connect ve AdMob tarafında aşağıdaki adımları senin hesabında açmamız gerekiyor.
+
+## App Store Connect'te Yapılacaklar
+
+1. App Store Connect'e gir.
+2. BlitzFlash uygulamasını aç.
+3. Sol menüden `Features` veya `Özellikler` bölümüne gir.
+4. `In-App Purchases` veya `Uygulama İçi Satın Almalar` bölümünü aç.
+5. Aşağıdaki 3 ürünü oluştur.
+
+| Ürün Adı | Tür | Product ID |
 | --- | --- | --- |
-| Weekly Plus | Auto-renewable subscription | `com.blitzhanlabs.BlitzFlash.premium.weekly` |
-| Monthly Plus | Auto-renewable subscription | `com.blitzhanlabs.BlitzFlash.premium.monthly` |
-| Lifetime Plus | Non-consumable | `com.blitzhanlabs.BlitzFlash.premium.lifetime` |
+| Haftalık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.premium.weekly` |
+| Aylık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.premium.monthly` |
+| Ömür Boyu Plus | Tek seferlik satın alma | `com.blitzhanlabs.BlitzFlash.premium.lifetime` |
 
-The app reads these IDs from `MonetizationStore.swift`. Users with any active entitlement are treated as premium and do not see ad placements.
+Çok önemli: `Product ID` değerlerini birebir aynı yaz. Harf, nokta veya büyük/küçük harf farkı olursa uygulama ürünleri bulamaz.
 
-## Recommended Pricing
+## Fiyat Önerisi
 
-- Weekly: low entry price for casual users.
-- Monthly: best default offer.
-- Lifetime: priced high enough to protect subscription value.
+Başlangıç için çok basit bir fiyat mantığı:
 
-Avoid making lifetime too cheap because it can reduce subscription upside.
+- Haftalık Plus: düşük fiyatlı deneme seçeneği
+- Aylık Plus: ana satın alma seçeneği
+- Ömür Boyu Plus: aylığa göre daha yüksek, tek seferlik kalıcı seçenek
 
-## Ad Integration
+Ömür boyu seçeneği çok ucuz yapma. Çünkü kullanıcı bir kez alır ve bir daha ödeme yapmaz.
 
-`AdSlotView` is the shared ad placement component. It currently shows a branded placeholder and automatically hides for Plus users.
+## Reklam İçin Yapılacaklar
 
-When ready to serve real ads:
+Gerçek reklam göstermek için AdMob kullanacağız.
 
-1. Create an AdMob app for the iOS bundle ID `com.blitzhanlabs.BlitzFlash`.
-2. Add the Google Mobile Ads SDK to the Xcode project.
-3. Replace the placeholder body in `AdSlotView` with the native banner view.
-4. Keep the existing `if !monetization.isPremium` gate so paid users remain ad-free.
+1. Google AdMob hesabına gir.
+2. Yeni iOS uygulaması oluştur.
+3. Bundle ID olarak şunu yaz:
 
-Suggested initial placements:
+```text
+com.blitzhanlabs.BlitzFlash
+```
 
-- Home screen: one banner below Plus card.
-- Each mode: one banner near the top.
+4. Banner reklam birimi oluştur.
+5. AdMob sana bir reklam birimi ID'si verecek.
+6. O ID'yi bana gönder.
+7. Ben Google Mobile Ads SDK'yı projeye ekleyip gerçek reklamı bağlayacağım.
 
-Do not add interstitial ads until retention is healthy; they can hurt learning flow.
+Şu an uygulamadaki reklam alanları sadece hazır yer tutucu olarak duruyor. Yani tasarım ve premium kontrolü hazır, gerçek reklam ağı henüz bağlanmadı.
+
+## İlk Sürüm İçin Tavsiye
+
+İlk başta sadece banner reklam kullanalım.
+
+Önerilen reklam yerleri:
+
+- Ana sayfa
+- Serbest Mod
+- Yazarak Tahmin
+- Cümle Tamamla
+- Kelime Avı
+
+Tam ekran reklamı şimdilik eklemeyelim. Öğrenme akışını bölebilir ve kullanıcıyı uygulamadan soğutabilir.
+
+## Senin Yapman Gereken En Basit Liste
+
+1. App Store Connect'te 3 satın alma ürünü oluştur.
+2. Product ID'leri yukarıdakiyle birebir aynı yaz.
+3. AdMob'da iOS uygulaması oluştur.
+4. Banner reklam birimi oluştur.
+5. Bana AdMob reklam birimi ID'sini gönder.
+
+Bu 5 adım tamamlanınca kod tarafında gerçek reklam bağlantısını yapabiliriz.
