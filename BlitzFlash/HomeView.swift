@@ -7,7 +7,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    BrandHeader(wordCount: words.count)
+                    BrandHeader()
 
                     VStack(spacing: 12) {
                         ForEach(BlitzMode.allCases) { mode in
@@ -47,10 +47,8 @@ struct HomeView: View {
 }
 
 private struct BrandHeader: View {
-    var wordCount: Int
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 14) {
                 LightningBadge()
 
@@ -68,7 +66,7 @@ private struct BrandHeader: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
 
-                    Text("Hızlı tekrar. Net skor. 800 kelime.")
+                    Text("Kendi ritminde öğren, modunu seç ve başla.")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BlitzTheme.muted)
                         .lineLimit(2)
@@ -76,39 +74,6 @@ private struct BrandHeader: View {
 
                 Spacer(minLength: 0)
             }
-
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("\(wordCount)")
-                        .font(.system(size: 34, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [BlitzTheme.accent, BlitzTheme.primary],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-
-                    Text("kelimelik havuz")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(BlitzTheme.ink)
-
-                    Spacer()
-                }
-
-                Text("Bir mod seç, kısa bir tur aç, ritmini yakala.")
-                    .font(.subheadline)
-                    .foregroundStyle(BlitzTheme.muted)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(BlitzTheme.surface.opacity(0.78))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(BlitzTheme.primary.opacity(0.14), lineWidth: 1)
-                    }
-            )
         }
     }
 }
