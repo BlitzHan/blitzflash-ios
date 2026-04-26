@@ -11,12 +11,17 @@ struct WordHuntView: View {
     @State private var solved: Set<UUID> = []
     @State private var failed: Set<UUID> = []
     @State private var attempts: [UUID: Int] = [:]
+    @State private var roundWords: [VocabularyWord] = []
     @State private var prompts: [UUID: WordHuntPrompt] = [:]
     @State private var score = 0
     @State private var feedback: String?
     @State private var isFinished = false
     @State private var finishedAt = Date()
     @State private var isNewBest = false
+
+    private var activeWords: [VocabularyWord] {
+        roundWords.isEmpty ? Array(words.prefix(15)) : roundWords
+    }
 
     var body: some View {
         Group {
@@ -28,11 +33,11 @@ struct WordHuntView: View {
                         HStack {
                             StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
                             StatPill(title: "Bitti", value: solved.count + failed.count, color: BlitzTheme.success)
-                            StatPill(title: "Toplam", value: words.count, color: BlitzTheme.muted)
+                            StatPill(title: "Toplam", value: activeWords.count, color: BlitzTheme.muted)
                         }
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                            ForEach(words) { word in
+                            ForEach(activeWords) { word in
                                 let prompt = prompt(for: word)
 
                                 Button {
@@ -206,7 +211,8 @@ struct WordHuntView: View {
         solved = []
         failed = []
         attempts = [:]
-        prompts = randomPrompts()
+        roundWords = randomRoundWords()
+        prompts = randomPrompts(for: roundWords)
         score = 0
         feedback = nil
         isFinished = false
@@ -245,7 +251,7 @@ struct WordHuntView: View {
             HStack(spacing: 10) {
                 StatPill(title: "Doğru", value: solved.count, color: BlitzTheme.success)
                 StatPill(title: "Kaçan", value: failed.count, color: BlitzTheme.danger)
-                StatPill(title: "Toplam", value: words.count, color: BlitzTheme.muted)
+                StatPill(title: "Toplam", value: activeWords.count, color: BlitzTheme.muted)
             }
 
             Button {
@@ -273,15 +279,20 @@ struct WordHuntView: View {
 
     private func preparePromptsIfNeeded() {
         guard prompts.isEmpty else { return }
-        prompts = randomPrompts()
+        roundWords = randomRoundWords()
+        prompts = randomPrompts(for: roundWords)
     }
 
-    private func randomPrompts() -> [UUID: WordHuntPrompt] {
-        let mixedPrompts = words.indices
+    private func randomRoundWords() -> [VocabularyWord] {
+        Array(words.shuffled().prefix(15))
+    }
+
+    private func randomPrompts(for roundWords: [VocabularyWord]) -> [UUID: WordHuntPrompt] {
+        let mixedPrompts = roundWords.indices
             .map { $0.isMultiple(of: 2) ? WordHuntPrompt.englishToTurkish : .turkishToEnglish }
             .shuffled()
 
-        return Dictionary(uniqueKeysWithValues: zip(words.map(\.id), mixedPrompts))
+        return Dictionary(uniqueKeysWithValues: zip(roundWords.map(\.id), mixedPrompts))
     }
 
     private func prompt(for word: VocabularyWord) -> WordHuntPrompt {

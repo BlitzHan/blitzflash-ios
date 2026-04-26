@@ -13,7 +13,7 @@ struct FreeStudyView: View {
 
     init(words: [VocabularyWord]) {
         self.words = words
-        _prompts = State(initialValue: words.map { CardPrompt(word: $0, startsWithEnglish: Bool.random()) })
+        _prompts = State(initialValue: Self.randomPrompts(from: words))
     }
 
     private var currentPrompt: CardPrompt {
@@ -231,8 +231,17 @@ struct FreeStudyView: View {
     private func nextCard() {
         withAnimation(.easeInOut(duration: 0.16)) {
             isShowingAnswer = false
-            currentIndex = (currentIndex + 1) % prompts.count
+            if currentIndex + 1 >= prompts.count {
+                prompts = Self.randomPrompts(from: words)
+                currentIndex = 0
+            } else {
+                currentIndex += 1
+            }
         }
+    }
+
+    private static func randomPrompts(from words: [VocabularyWord]) -> [CardPrompt] {
+        words.shuffled().map { CardPrompt(word: $0, startsWithEnglish: Bool.random()) }
     }
 }
 

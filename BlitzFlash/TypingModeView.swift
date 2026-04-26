@@ -4,7 +4,8 @@ import Combine
 struct TypingModeView: View {
     var words: [VocabularyWord]
 
-    @State private var currentIndex = 0
+    @State private var currentWord: VocabularyWord?
+    @State private var recentWordIDs: [UUID] = []
     @State private var answer = ""
     @State private var correct = 0
     @State private var wrong = 0
@@ -18,8 +19,8 @@ struct TypingModeView: View {
 
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
-    private var currentWord: VocabularyWord {
-        words[min(currentIndex, words.count - 1)]
+    private var displayedWord: VocabularyWord {
+        currentWord ?? words.randomElement() ?? words[0]
     }
 
     var body: some View {
@@ -44,12 +45,12 @@ struct TypingModeView: View {
                             .background(BlitzTheme.primary.opacity(0.18))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-                        Text(currentWord.english)
+                        Text(displayedWord.english)
                             .font(.system(size: 42, weight: .black, design: .rounded))
                             .foregroundStyle(BlitzTheme.ink)
                             .shadow(color: BlitzTheme.primary.opacity(0.24), radius: 18, x: 0, y: 0)
 
-                        Text(currentWord.englishSentence)
+                        Text(displayedWord.englishSentence)
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.muted)
@@ -114,6 +115,9 @@ struct TypingModeView: View {
         .blitzScreen()
         .navigationTitle("Yazarak Tahmin")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            prepareWordIfNeeded()
+        }
         .onReceive(timer) { _ in
             guard hasStarted, !isFinished else { return }
             secondsLeft = max(secondsLeft - 1, 0)
@@ -148,7 +152,8 @@ struct TypingModeView: View {
                     .foregroundStyle(BlitzTheme.muted)
 
                 Button("Tekrar Oyna") {
-                    currentIndex = 0
+                    recentWordIDs = []
+                    selectRandomWord()
                     answer = ""
                     correct = 0
                     wrong = 0
@@ -175,7 +180,7 @@ struct TypingModeView: View {
         guard !trimmedAnswer.isEmpty else { return }
         hasStarted = true
 
-        let answeredWord = currentWord
+        let answeredWord = displayedWord
         let isCorrect = answeredWord.matches(trimmedAnswer)
         isResolvingAnswer = true
 
@@ -199,7 +204,7 @@ struct TypingModeView: View {
             withAnimation(.easeOut(duration: 0.18)) {
                 feedback = nil
             }
-            currentIndex = (currentIndex + 1) % words.count
+            selectRandomWord()
             isResolvingAnswer = false
         }
     }
@@ -240,6 +245,25 @@ struct TypingModeView: View {
         isFinished = true
         isResolvingAnswer = false
         feedback = nil
+    }
+
+    private func prepareWordIfNeeded() {
+        guard currentWord == nil else { return }
+        selectRandomWord()
+    }
+
+    private func selectRandomWord() {
+        guard !words.isEmpty else { return }
+        let pool = words.filter { !recentWordIDs.contains($0.id) }
+        let nextWord = (pool.isEmpty ? words : pool).randomElement()
+        currentWord = nextWord
+
+        if let nextWord {
+            recentWordIDs.append(nextWord.id)
+            if recentWordIDs.count > 40 {
+                recentWordIDs.removeFirst(recentWordIDs.count - 40)
+            }
+        }
     }
 
     private func formattedDate(_ date: Date) -> String {

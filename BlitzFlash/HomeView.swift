@@ -41,7 +41,7 @@ struct HomeView: View {
         case .sentence:
             SentenceModeView(words: words.shuffled())
         case .hunt:
-            WordHuntView(words: Array(words.shuffled().prefix(15)))
+            WordHuntView(words: words)
         }
     }
 }

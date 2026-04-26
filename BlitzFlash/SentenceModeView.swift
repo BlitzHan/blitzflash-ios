@@ -3,15 +3,16 @@ import SwiftUI
 struct SentenceModeView: View {
     var words: [VocabularyWord]
 
-    @State private var currentIndex = 0
+    @State private var currentWord: VocabularyWord?
+    @State private var recentWordIDs: [UUID] = []
     @State private var selectedAnswer: String?
     @State private var correct = 0
     @State private var wrong = 0
     @State private var currentOptions: [VocabularyWord] = []
     @State private var isAutoAdvancing = false
 
-    private var currentWord: VocabularyWord {
-        words[min(currentIndex, words.count - 1)]
+    private var displayedWord: VocabularyWord {
+        currentWord ?? words.randomElement() ?? words[0]
     }
 
     var body: some View {
@@ -30,7 +31,7 @@ struct SentenceModeView: View {
                         .shadow(color: BlitzTheme.success.opacity(0.18), radius: 16, x: 0, y: 0)
 
                     if selectedAnswer != nil {
-                        Text(currentWord.turkishSentence)
+                        Text(displayedWord.turkishSentence)
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.muted)
@@ -64,9 +65,9 @@ struct SentenceModeView: View {
                             Spacer()
 
                             if selectedAnswer == option.english {
-                                Image(systemName: option.english == currentWord.english ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(option.english == currentWord.english ? BlitzTheme.success : BlitzTheme.danger)
-                            } else if selectedAnswer != nil, option.english == currentWord.english {
+                                Image(systemName: option.english == displayedWord.english ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(option.english == displayedWord.english ? BlitzTheme.success : BlitzTheme.danger)
+                            } else if selectedAnswer != nil, option.english == displayedWord.english {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(BlitzTheme.success)
                             }
@@ -110,12 +111,14 @@ struct SentenceModeView: View {
         .blitzScreen()
         .navigationTitle("Cümle Tamamla")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: prepareOptions)
+        .onAppear {
+            prepareSentenceIfNeeded()
+        }
     }
 
     private var sentenceWithBlank: String {
-        currentWord.englishSentence.replacingOccurrences(
-            of: currentWord.english,
+        displayedWord.englishSentence.replacingOccurrences(
+            of: displayedWord.english,
             with: "_____",
             options: [.caseInsensitive]
         )
@@ -126,7 +129,7 @@ struct SentenceModeView: View {
         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
             selectedAnswer = option
         }
-        if option == currentWord.english {
+        if option == displayedWord.english {
             correct += 1
         } else {
             wrong += 1
@@ -137,18 +140,39 @@ struct SentenceModeView: View {
     private func goToNextSentence() {
         isAutoAdvancing = false
         selectedAnswer = nil
-        currentIndex = (currentIndex + 1) % words.count
+        selectRandomSentence()
         prepareOptions()
     }
 
     private func prepareOptions() {
-        var values = [currentWord]
+        let word = displayedWord
+        var values = [word]
         let distractors = words
-            .filter { $0.id != currentWord.id }
+            .filter { $0.id != word.id }
             .shuffled()
             .prefix(3)
         values.append(contentsOf: distractors)
         currentOptions = values.shuffled()
+    }
+
+    private func prepareSentenceIfNeeded() {
+        guard currentWord == nil else { return }
+        selectRandomSentence()
+        prepareOptions()
+    }
+
+    private func selectRandomSentence() {
+        guard !words.isEmpty else { return }
+        let pool = words.filter { !recentWordIDs.contains($0.id) }
+        let nextWord = (pool.isEmpty ? words : pool).randomElement()
+        currentWord = nextWord
+
+        if let nextWord {
+            recentWordIDs.append(nextWord.id)
+            if recentWordIDs.count > 40 {
+                recentWordIDs.removeFirst(recentWordIDs.count - 40)
+            }
+        }
     }
 
     private func scheduleNextSentence() {
@@ -163,7 +187,7 @@ struct SentenceModeView: View {
 
     private func optionBackground(_ option: String) -> AnyShapeStyle {
         guard selectedAnswer != nil else { return AnyShapeStyle(BlitzTheme.surface) }
-        if option == currentWord.english {
+        if option == displayedWord.english {
             return AnyShapeStyle(LinearGradient(
                 colors: [BlitzTheme.success.opacity(0.28), BlitzTheme.surfaceLight],
                 startPoint: .leading,
@@ -182,21 +206,21 @@ struct SentenceModeView: View {
 
     private func optionBorder(_ option: String) -> Color {
         guard let selectedAnswer else { return BlitzTheme.primary.opacity(0.1) }
-        if option == currentWord.english { return BlitzTheme.success.opacity(0.7) }
+        if option == displayedWord.english { return BlitzTheme.success.opacity(0.7) }
         if option == selectedAnswer { return BlitzTheme.danger.opacity(0.7) }
         return BlitzTheme.primary.opacity(0.08)
     }
 
     private func optionAccent(_ option: String) -> Color {
         guard let selectedAnswer else { return BlitzTheme.primary.opacity(0.42) }
-        if option == currentWord.english { return BlitzTheme.success }
+        if option == displayedWord.english { return BlitzTheme.success }
         if option == selectedAnswer { return BlitzTheme.danger }
         return BlitzTheme.dim
     }
 
     private func optionTextColor(_ option: String) -> Color {
         guard selectedAnswer != nil else { return BlitzTheme.ink }
-        if option == currentWord.english || option == selectedAnswer { return BlitzTheme.ink }
+        if option == displayedWord.english || option == selectedAnswer { return BlitzTheme.ink }
         return BlitzTheme.muted
     }
 }
