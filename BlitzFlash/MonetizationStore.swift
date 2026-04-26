@@ -166,6 +166,7 @@ struct AdSlotView: View {
 struct PremiumPaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var monetization: MonetizationStore
+    @State private var isRedeemCodePresented = false
 
     var body: some View {
         NavigationStack {
@@ -238,7 +239,7 @@ struct PremiumPaywallView: View {
                             previewPlanRow(
                                 title: "Ömür Boyu Plus",
                                 subtitle: "Tek ödeme, kalıcı reklamsız kullanım",
-                                price: "₺149"
+                                price: "₺199,99"
                             )
 
                             Text("Geliştirici önizlemesi. TestFlight/App Store sürümünde gerçek ürünler Apple üzerinden gelir.")
@@ -274,7 +275,17 @@ struct PremiumPaywallView: View {
                     }
                     .buttonStyle(BlitzProminentButton(tint: BlitzTheme.primary))
 
-                    Text("Abonelikler Apple hesabın üzerinden yönetilir. Ömür boyu lisans tek seferlik satın almadır.")
+                    Button {
+                        isRedeemCodePresented = true
+                    } label: {
+                        Label("Kod Kullan", systemImage: "gift.fill")
+                            .font(.headline.weight(.bold))
+                            .padding(.vertical, 13)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(BlitzOutlineButton(tint: BlitzTheme.accent))
+
+                    Text("Abonelikler Apple hesabın üzerinden yönetilir. Ömür boyu lisans tek seferlik satın almadır. Hediye kodları App Store Connect üzerinden oluşturulur.")
                         .font(.caption)
                         .foregroundStyle(BlitzTheme.muted)
                 }
@@ -294,6 +305,14 @@ struct PremiumPaywallView: View {
             .task {
                 await monetization.loadProducts()
                 await monetization.refreshEntitlements()
+            }
+            .offerCodeRedemption(isPresented: $isRedeemCodePresented) { result in
+                Task {
+                    await monetization.refreshEntitlements()
+                    if case .failure = result {
+                        monetization.errorMessage = "Kod kullanma ekranı açılamadı."
+                    }
+                }
             }
         }
     }

@@ -187,6 +187,25 @@ struct BlitzProminentButton: ButtonStyle {
     }
 }
 
+struct BlitzOutlineButton: ButtonStyle {
+    var tint: Color = BlitzTheme.primary
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(tint)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(BlitzTheme.surface.opacity(0.72))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(tint.opacity(0.42), lineWidth: 1)
+            }
+            .shadow(color: tint.opacity(configuration.isPressed ? 0.12 : 0.22), radius: configuration.isPressed ? 6 : 14, x: 0, y: 0)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+    }
+}
+
 struct BlitzCheckButtonStyle: ButtonStyle {
     var tint: Color = BlitzTheme.accent
     @Environment(\.isEnabled) private var isEnabled
