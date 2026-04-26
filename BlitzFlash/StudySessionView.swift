@@ -58,6 +58,8 @@ struct FreeStudyView: View {
                 StatPill(title: "Toplam", value: prompts.count, color: BlitzTheme.primary)
             }
 
+            AdSlotView(placement: "Serbest Mod")
+
             ProgressView(value: Double(currentIndex + 1), total: Double(prompts.count))
                 .tint(BlitzTheme.primary)
 

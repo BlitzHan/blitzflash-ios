@@ -2,12 +2,18 @@ import SwiftUI
 
 struct HomeView: View {
     private let words = VocabularyData.words
+    @EnvironmentObject private var monetization: MonetizationStore
+    @State private var isShowingPaywall = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     BrandHeader()
+
+                    premiumStatusCard
+
+                    AdSlotView(placement: "Ana sayfa")
 
                     VStack(spacing: 12) {
                         ForEach(BlitzMode.allCases) { mode in
@@ -28,7 +34,67 @@ struct HomeView: View {
             .blitzScreen()
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isShowingPaywall = true
+                    } label: {
+                        Image(systemName: monetization.isPremium ? "crown.fill" : "crown")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(BlitzTheme.accent)
+                    }
+                    .accessibilityLabel("BlitzFlash Plus")
+                }
+            }
+            .sheet(isPresented: $isShowingPaywall) {
+                PremiumPaywallView()
+            }
         }
+    }
+
+    private var premiumStatusCard: some View {
+        Button {
+            isShowingPaywall = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(BlitzTheme.accent.opacity(0.18))
+                        .frame(width: 42, height: 42)
+
+                    Image(systemName: monetization.isPremium ? "crown.fill" : "crown")
+                        .font(.headline.weight(.black))
+                        .foregroundStyle(BlitzTheme.accent)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(monetization.isPremium ? "Plus aktif" : "BlitzFlash Plus")
+                        .font(.headline.weight(.black))
+                        .foregroundStyle(BlitzTheme.ink)
+
+                    Text(monetization.isPremium ? "Reklamsız kullanım açık." : "Reklamsız kullanım için yükselt.")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BlitzTheme.muted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.black))
+                    .foregroundStyle(BlitzTheme.accent)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(BlitzTheme.cardGradient)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(BlitzTheme.accent.opacity(0.2), lineWidth: 1)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder

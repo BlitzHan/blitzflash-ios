@@ -32,6 +32,8 @@ struct TypingModeView: View {
                 StatPill(title: "Süre", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
             }
 
+            AdSlotView(placement: "Yazarak Tahmin")
+
             if isFinished {
                 resultPanel
             } else {

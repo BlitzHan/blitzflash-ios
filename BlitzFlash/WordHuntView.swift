@@ -36,6 +36,8 @@ struct WordHuntView: View {
                             StatPill(title: "Toplam", value: activeWords.count, color: BlitzTheme.muted)
                         }
 
+                        AdSlotView(placement: "Kelime Avı")
+
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                             ForEach(activeWords) { word in
                                 let prompt = prompt(for: word)

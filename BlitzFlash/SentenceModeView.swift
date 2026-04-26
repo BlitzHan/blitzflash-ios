@@ -22,6 +22,8 @@ struct SentenceModeView: View {
                 StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
             }
 
+            AdSlotView(placement: "Cümle Tamamla")
+
             BlitzCard(glow: BlitzTheme.success) {
                 VStack(spacing: 14) {
                     Text(sentenceWithBlank)
