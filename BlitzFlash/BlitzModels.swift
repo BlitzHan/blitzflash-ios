@@ -63,8 +63,11 @@ enum BlitzMode: String, CaseIterable, Identifiable {
 
 extension String {
     var foldedForAnswer: String {
-        folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "tr_TR"))
-            .lowercased()
+        replacingOccurrences(of: "İ", with: "i")
+            .replacingOccurrences(of: "I", with: "i")
+            .replacingOccurrences(of: "ı", with: "i")
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "tr_TR"))
+            .lowercased(with: Locale(identifier: "tr_TR"))
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
