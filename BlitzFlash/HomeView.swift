@@ -3,17 +3,19 @@ import SwiftUI
 struct HomeView: View {
     private let words = VocabularyData.words
     @EnvironmentObject private var monetization: MonetizationStore
+    @AppStorage("learningLanguage") private var learningLanguageRaw = LearningLanguage.english.rawValue
     @State private var isShowingPaywall = false
+    @State private var isShowingSettings = false
+
+    private var learningLanguage: LearningLanguage {
+        LearningLanguage(rawValue: learningLanguageRaw) ?? .english
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     BrandHeader()
-
-                    premiumStatusCard
-
-                    AdSlotView(placement: "Ana sayfa")
 
                     VStack(spacing: 12) {
                         ForEach(BlitzMode.allCases) { mode in
@@ -25,6 +27,13 @@ struct HomeView: View {
                             .buttonStyle(.plain)
                         }
                     }
+
+                    AdSlotView(placement: "Ana sayfa")
+
+                    VStack(spacing: 12) {
+                        languageStatusCard
+                        premiumStatusCard
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
@@ -35,6 +44,17 @@ struct HomeView: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(BlitzTheme.primary)
+                    }
+                    .accessibilityLabel("Ayarlar")
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isShowingPaywall = true
@@ -49,7 +69,55 @@ struct HomeView: View {
             .sheet(isPresented: $isShowingPaywall) {
                 PremiumPaywallView()
             }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsView()
+            }
         }
+    }
+
+    private var languageStatusCard: some View {
+        Button {
+            isShowingSettings = true
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(BlitzTheme.primary.opacity(0.18))
+                        .frame(width: 42, height: 42)
+
+                    Text(learningLanguage.shortCode)
+                        .font(.headline.weight(.black))
+                        .foregroundStyle(BlitzTheme.primaryLight)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Öğrenilen dil")
+                        .font(.headline.weight(.black))
+                        .foregroundStyle(BlitzTheme.ink)
+
+                    Text("\(learningLanguage.title) - Türkçe")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BlitzTheme.muted)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.black))
+                    .foregroundStyle(BlitzTheme.primary)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(BlitzTheme.cardGradient)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(BlitzTheme.primary.opacity(0.2), lineWidth: 1)
+                    }
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var premiumStatusCard: some View {
@@ -101,13 +169,101 @@ struct HomeView: View {
     private func destination(for mode: BlitzMode) -> some View {
         switch mode {
         case .free:
-            FreeStudyView(words: words.shuffled())
+            FreeStudyView(words: words.shuffled(), learningLanguage: learningLanguage)
         case .typing:
-            TypingModeView(words: words.shuffled())
+            TypingModeView(words: words.shuffled(), learningLanguage: learningLanguage)
         case .sentence:
-            SentenceModeView(words: words.shuffled())
+            SentenceModeView(words: words.shuffled(), learningLanguage: learningLanguage)
         case .hunt:
-            WordHuntView(words: words)
+            WordHuntView(words: words, learningLanguage: learningLanguage)
+        }
+    }
+}
+
+private struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("learningLanguage") private var learningLanguageRaw = LearningLanguage.english.rawValue
+
+    private var selectedLanguage: LearningLanguage {
+        LearningLanguage(rawValue: learningLanguageRaw) ?? .english
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Ayarlar")
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                            .foregroundStyle(BlitzTheme.ink)
+
+                        Text("BlitzFlash'te hangi dili Türkçe ile çalışacağını seç.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BlitzTheme.muted)
+                    }
+
+                    VStack(spacing: 12) {
+                        ForEach(LearningLanguage.allCases) { language in
+                            Button {
+                                learningLanguageRaw = language.rawValue
+                            } label: {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(language == selectedLanguage ? BlitzTheme.primary.opacity(0.24) : BlitzTheme.surfaceLight)
+                                            .frame(width: 48, height: 48)
+
+                                        Text(language.shortCode)
+                                            .font(.headline.weight(.black))
+                                            .foregroundStyle(language == selectedLanguage ? BlitzTheme.primaryLight : BlitzTheme.muted)
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(language.title)
+                                            .font(.headline.weight(.black))
+                                            .foregroundStyle(BlitzTheme.ink)
+
+                                        Text("\(language.nativeTitle) - Türkçe kelime çalışması")
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(BlitzTheme.muted)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: language == selectedLanguage ? "checkmark.circle.fill" : "circle")
+                                        .font(.title3.weight(.bold))
+                                        .foregroundStyle(language == selectedLanguage ? BlitzTheme.success : BlitzTheme.dim)
+                                }
+                                .padding(14)
+                                .frame(maxWidth: .infinity)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(BlitzTheme.cardGradient)
+                                        .overlay {
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke((language == selectedLanguage ? BlitzTheme.primary : BlitzTheme.primary.opacity(0.12)), lineWidth: 1)
+                                        }
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .scrollContentBackground(.hidden)
+            .blitzScreen()
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Tamam") {
+                        dismiss()
+                    }
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(BlitzTheme.accent)
+                }
+            }
         }
     }
 }

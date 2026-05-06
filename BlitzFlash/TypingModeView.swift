@@ -3,6 +3,7 @@ import Combine
 
 struct TypingModeView: View {
     var words: [VocabularyWord]
+    var learningLanguage: LearningLanguage = .english
 
     @State private var currentWord: VocabularyWord?
     @State private var recentWordIDs: [UUID] = []
@@ -39,7 +40,7 @@ struct TypingModeView: View {
             } else {
                 BlitzCard(glow: BlitzTheme.secondary) {
                     VStack(spacing: 14) {
-                        Text("English")
+                        Text(learningLanguage.cardLabel)
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(BlitzTheme.primary)
                             .padding(.horizontal, 14)
@@ -47,12 +48,12 @@ struct TypingModeView: View {
                             .background(BlitzTheme.primary.opacity(0.18))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-                        Text(displayedWord.english)
+                        Text(displayedWord.targetTerm(for: learningLanguage))
                             .font(.system(size: 42, weight: .black, design: .rounded))
                             .foregroundStyle(BlitzTheme.ink)
                             .shadow(color: BlitzTheme.primary.opacity(0.24), radius: 18, x: 0, y: 0)
 
-                        Text(displayedWord.englishSentence)
+                        Text(displayedWord.targetSentence(for: learningLanguage))
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.muted)
@@ -174,7 +175,7 @@ struct TypingModeView: View {
         }
 
         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-            feedback = TypingFeedback(isCorrect: isCorrect, english: answeredWord.english, turkish: answeredWord.turkish)
+            feedback = TypingFeedback(isCorrect: isCorrect, target: answeredWord.targetTerm(for: learningLanguage), turkish: answeredWord.turkish)
         }
 
         answer = ""
@@ -201,7 +202,7 @@ struct TypingModeView: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
 
-                Text("\(feedback.english) = \(feedback.turkish)")
+                Text("\(feedback.target) = \(feedback.turkish)")
                     .font(.headline.weight(.bold))
                     .foregroundStyle(BlitzTheme.ink)
                     .lineLimit(3)
@@ -271,6 +272,6 @@ struct TypingModeView: View {
 
 private struct TypingFeedback {
     let isCorrect: Bool
-    let english: String
+    let target: String
     let turkish: String
 }

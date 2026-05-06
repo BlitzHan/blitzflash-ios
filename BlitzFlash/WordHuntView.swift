@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WordHuntView: View {
     var words: [VocabularyWord]
+    var learningLanguage: LearningLanguage = .english
 
     @AppStorage("wordHuntBestScore") private var bestScore = 0
     @AppStorage("wordHuntHasBestScore") private var hasBestScore = false
@@ -48,14 +49,14 @@ struct WordHuntView: View {
                                     feedback = nil
                                 } label: {
                                     VStack(spacing: 8) {
-                                        Text(prompt.questionText(for: word))
+                                        Text(prompt.questionText(for: word, language: learningLanguage))
                                             .font(.subheadline.weight(.bold))
                                             .multilineTextAlignment(.center)
                                             .foregroundStyle(BlitzTheme.ink)
                                             .lineLimit(2)
 
                                         if isCompleted(word) {
-                                            Text(prompt.answerText(for: word))
+                                            Text(prompt.answerText(for: word, language: learningLanguage))
                                                 .font(.caption.weight(.semibold))
                                                 .multilineTextAlignment(.center)
                                                 .foregroundStyle(BlitzTheme.ink.opacity(0.86))
@@ -115,14 +116,14 @@ struct WordHuntView: View {
             VStack(spacing: 18) {
                 BlitzCard(glow: BlitzTheme.accent) {
                     VStack(spacing: 14) {
-                        Text(prompt.questionText(for: word))
+                        Text(prompt.questionText(for: word, language: learningLanguage))
                             .font(.system(size: 42, weight: .black, design: .rounded))
                             .minimumScaleFactor(0.58)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.ink)
                             .shadow(color: BlitzTheme.accent.opacity(0.22), radius: 18, x: 0, y: 0)
 
-                        Text(prompt.sentenceText(for: word))
+                        Text(prompt.sentenceText(for: word, language: learningLanguage))
                             .font(.body)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.muted)
@@ -134,7 +135,7 @@ struct WordHuntView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                TextField(prompt.placeholder, text: $answer)
+                TextField(prompt.placeholder(for: learningLanguage), text: $answer)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.done)
@@ -165,7 +166,7 @@ struct WordHuntView: View {
             }
             .padding(20)
             .blitzScreen()
-            .navigationTitle("Ceviri")
+            .navigationTitle("Çeviri")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -174,10 +175,10 @@ struct WordHuntView: View {
         let currentAttempts = attempts[word.id, default: 0]
         let prompt = prompt(for: word)
 
-        if prompt.matches(answer, word: word) {
+        if prompt.matches(answer, word: word, language: learningLanguage) {
             solved.insert(word.id)
             score += scoreForCorrectAnswer(afterWrongAttempts: currentAttempts)
-            feedback = "Doğru: \(prompt.answerText(for: word))"
+            feedback = "Doğru: \(prompt.answerText(for: word, language: learningLanguage))"
             selectedWord = nil
             return
         }
@@ -186,7 +187,7 @@ struct WordHuntView: View {
         if currentAttempts + 1 >= 3 {
             failed.insert(word.id)
             score -= 3
-            feedback = "Hak bitti: \(prompt.answerText(for: word))"
+            feedback = "Hak bitti: \(prompt.answerText(for: word, language: learningLanguage))"
             selectedWord = nil
         } else {
             feedback = "Yanlış. Kalan hak: \(3 - (currentAttempts + 1))"
@@ -299,14 +300,14 @@ struct WordHuntView: View {
 
     private func randomPrompts(for roundWords: [VocabularyWord]) -> [UUID: WordHuntPrompt] {
         let mixedPrompts = roundWords.indices
-            .map { $0.isMultiple(of: 2) ? WordHuntPrompt.englishToTurkish : .turkishToEnglish }
+            .map { $0.isMultiple(of: 2) ? WordHuntPrompt.targetToTurkish : .turkishToTarget }
             .shuffled()
 
         return Dictionary(uniqueKeysWithValues: zip(roundWords.map(\.id), mixedPrompts))
     }
 
     private func prompt(for word: VocabularyWord) -> WordHuntPrompt {
-        prompts[word.id, default: .englishToTurkish]
+        prompts[word.id, default: .targetToTurkish]
     }
 
     private func statusText(for word: VocabularyWord, prompt: WordHuntPrompt) -> String {
@@ -318,7 +319,7 @@ struct WordHuntView: View {
             }
         }
         if failed.contains(word.id) { return "Bilemedin" }
-        return prompt.label
+        return prompt.label(for: learningLanguage)
     }
 
     private func statusColor(for word: VocabularyWord, prompt: WordHuntPrompt) -> Color {
@@ -367,64 +368,50 @@ struct WordHuntView: View {
 }
 
 private enum WordHuntPrompt {
-    case englishToTurkish
-    case turkishToEnglish
+    case targetToTurkish
+    case turkishToTarget
 
-    var label: String {
+    func label(for language: LearningLanguage) -> String {
         switch self {
-        case .englishToTurkish: "EN"
-        case .turkishToEnglish: "TR"
+        case .targetToTurkish: language.shortCode
+        case .turkishToTarget: "TR"
         }
     }
 
-    var placeholder: String {
+    func placeholder(for language: LearningLanguage) -> String {
         switch self {
-        case .englishToTurkish: "Türkçe çevirisini yaz..."
-        case .turkishToEnglish: "İngilizce karşılığını yaz..."
+        case .targetToTurkish: "Türkçe çevirisini yaz..."
+        case .turkishToTarget: "\(language.title) karşılığını yaz..."
         }
     }
 
-    func questionText(for word: VocabularyWord) -> String {
+    func questionText(for word: VocabularyWord, language: LearningLanguage) -> String {
         switch self {
-        case .englishToTurkish: word.english
-        case .turkishToEnglish: word.turkish
+        case .targetToTurkish: word.targetTerm(for: language)
+        case .turkishToTarget: word.turkish
         }
     }
 
-    func sentenceText(for word: VocabularyWord) -> String {
+    func sentenceText(for word: VocabularyWord, language: LearningLanguage) -> String {
         switch self {
-        case .englishToTurkish: word.englishSentence
-        case .turkishToEnglish: word.turkishSentence
+        case .targetToTurkish: word.targetSentence(for: language)
+        case .turkishToTarget: word.turkishSentence
         }
     }
 
-    func answerText(for word: VocabularyWord) -> String {
+    func answerText(for word: VocabularyWord, language: LearningLanguage) -> String {
         switch self {
-        case .englishToTurkish: word.turkish
-        case .turkishToEnglish: word.english
+        case .targetToTurkish: word.turkish
+        case .turkishToTarget: word.targetTerm(for: language)
         }
     }
 
-    func matches(_ answer: String, word: VocabularyWord) -> Bool {
+    func matches(_ answer: String, word: VocabularyWord, language: LearningLanguage) -> Bool {
         switch self {
-        case .englishToTurkish:
+        case .targetToTurkish:
             word.strictlyMatchesTurkish(answer)
-        case .turkishToEnglish:
-            word.strictlyMatchesEnglish(answer)
+        case .turkishToTarget:
+            word.strictlyMatchesTarget(answer, language: language)
         }
-    }
-}
-
-private extension VocabularyWord {
-    func strictlyMatchesTurkish(_ answer: String) -> Bool {
-        let normalized = answer.foldedForAnswer
-        guard !normalized.isEmpty else { return false }
-        return acceptedAnswers.contains(normalized) || turkish.foldedForAnswer == normalized
-    }
-
-    func strictlyMatchesEnglish(_ answer: String) -> Bool {
-        let normalized = answer.foldedForAnswer
-        guard !normalized.isEmpty else { return false }
-        return english.foldedForAnswer == normalized
     }
 }

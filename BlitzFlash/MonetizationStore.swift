@@ -19,6 +19,7 @@ final class MonetizationStore: ObservableObject {
     @Published private(set) var purchasedProductIDs: Set<String> = []
     @Published var errorMessage: String?
     @Published var isLoading = false
+    @Published private(set) var didAttemptProductLoad = false
 
     private var transactionUpdatesTask: Task<Void, Never>?
 
@@ -52,9 +53,13 @@ final class MonetizationStore: ObservableObject {
 
     func loadProducts() async {
         isLoading = true
+        didAttemptProductLoad = true
         errorMessage = nil
         do {
             products = try await Product.products(for: Self.productIDs)
+            if products.isEmpty {
+                errorMessage = "Satın alma ürünleri App Store'dan alınamadı."
+            }
         } catch {
             errorMessage = "Satın alma seçenekleri yüklenemedi."
         }
@@ -168,6 +173,12 @@ struct PremiumPaywallView: View {
     @EnvironmentObject private var monetization: MonetizationStore
     @State private var isRedeemCodePresented = false
 
+    private let fallbackPlans = [
+        PremiumPlanPreview(title: "Haftalık Plus", subtitle: "Kısa süreli Plus erişimi", price: "₺24,99"),
+        PremiumPlanPreview(title: "Aylık Plus", subtitle: "Düzenli çalışma için Plus erişimi", price: "₺89,99"),
+        PremiumPlanPreview(title: "Ömür Boyu Plus", subtitle: "Tek ödeme, kalıcı Plus erişimi", price: "₺199,99")
+    ]
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -179,82 +190,55 @@ struct PremiumPaywallView: View {
                             .font(.system(size: 34, weight: .black, design: .rounded))
                             .foregroundStyle(BlitzTheme.ink)
 
-                        Text("Reklamsız çalış, modlar arasında kesintisiz ilerle.")
+                        Text("BlitzFlash'i destekle, Plus ayrıcalıklarını kullan ve modlar arasında kesintisiz ilerle.")
                             .font(.headline)
                             .foregroundStyle(BlitzTheme.muted)
                     }
 
-                    VStack(spacing: 10) {
-                        ForEach(monetization.sortedProducts, id: \.id) { product in
-                            Button {
-                                Task {
-                                    await monetization.purchase(product)
-                                }
-                            } label: {
-                                HStack(spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(title(for: product))
-                                            .font(.headline.weight(.black))
-                                            .foregroundStyle(BlitzTheme.ink)
+                    BlitzCard(glow: BlitzTheme.accent) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Plus ile neler var?", systemImage: "crown.fill")
+                                .font(.headline.weight(.black))
+                                .foregroundStyle(BlitzTheme.ink)
 
-                                        Text(subtitle(for: product))
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(BlitzTheme.muted)
-                                    }
-
-                                    Spacer()
-
-                                    Text(product.displayPrice)
-                                        .font(.headline.weight(.black))
-                                        .foregroundStyle(BlitzTheme.accent)
-                                }
-                                .padding(14)
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.plain)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(BlitzTheme.cardGradient)
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                            .stroke(BlitzTheme.accent.opacity(0.2), lineWidth: 1)
-                                    }
-                            )
+                            benefitRow("BlitzFlash'in gelişimini destekle.")
+                            benefitRow("Satın aldığın Plus erişimini tüm Apple cihazlarında geri yükle.")
+                            benefitRow("Reklamlar aktif olduğunda reklamsız ve kesintisiz devam et.")
+                            benefitRow("Yeni kelime setleri ve çalışma seçenekleri için hazır kal.")
                         }
                     }
 
-                    if monetization.products.isEmpty {
-#if DEBUG
+                    if monetization.sortedProducts.isEmpty {
                         VStack(spacing: 10) {
-                            previewPlanRow(
-                                title: "Haftalık Plus",
-                                subtitle: "Kısa süreli reklamsız kullanım",
-                                price: "₺24,99"
-                            )
-                            previewPlanRow(
-                                title: "Aylık Plus",
-                                subtitle: "Düzenli çalışma için reklamsız kullanım",
-                                price: "₺89,99"
-                            )
-                            previewPlanRow(
-                                title: "Ömür Boyu Plus",
-                                subtitle: "Tek ödeme, kalıcı reklamsız kullanım",
-                                price: "₺199,99"
-                            )
+                            ForEach(fallbackPlans) { plan in
+                                unavailablePlanRow(plan)
+                            }
+                        }
 
-                            Text("Geliştirici önizlemesi. TestFlight/App Store sürümünde gerçek ürünler Apple üzerinden gelir.")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(BlitzTheme.muted)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                        Text(monetization.isLoading ? "Satın alma seçenekleri yükleniyor..." : "Satın alma seçenekleri App Store'dan alınamadı. Paketleri satın alınabilir hale getirmek için App Store Connect ürünlerinin bu sürüme ekli ve incelemeye hazır olması gerekir.")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BlitzTheme.muted)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Button {
+                            Task {
+                                await monetization.loadProducts()
+                                await monetization.refreshEntitlements()
+                            }
+                        } label: {
+                            Label("Tekrar Dene", systemImage: "arrow.clockwise")
+                                .font(.headline.weight(.bold))
+                                .padding(.vertical, 13)
+                                .frame(maxWidth: .infinity)
                         }
-#else
-                        BlitzCard(glow: BlitzTheme.accent) {
-                            Text(monetization.isLoading ? "Seçenekler yükleniyor..." : "Satın alma seçenekleri App Store Connect ürünleri bağlanınca burada görünecek.")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(BlitzTheme.muted)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                        .buttonStyle(BlitzOutlineButton(tint: BlitzTheme.accent))
+                        .disabled(monetization.isLoading)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(monetization.sortedProducts, id: \.id) { product in
+                                productPlanButton(product)
+                            }
                         }
-#endif
                     }
 
                     if let errorMessage = monetization.errorMessage {
@@ -328,15 +312,59 @@ struct PremiumPaywallView: View {
 
     private func subtitle(for product: Product) -> String {
         switch product.id {
-        case MonetizationStore.weeklyProductID: "Kısa süreli reklamsız kullanım"
-        case MonetizationStore.monthlyProductID: "Düzenli çalışma için reklamsız kullanım"
-        case MonetizationStore.lifetimeProductID: "Tek ödeme, kalıcı reklamsız kullanım"
+        case MonetizationStore.weeklyProductID: "Kısa süreli Plus erişimi"
+        case MonetizationStore.monthlyProductID: "Düzenli çalışma için Plus erişimi"
+        case MonetizationStore.lifetimeProductID: "Tek ödeme, kalıcı Plus erişimi"
         default: product.description
         }
     }
 
-#if DEBUG
-    private func previewPlanRow(title: String, subtitle: String, price: String) -> some View {
+    private func benefitRow(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.subheadline.weight(.black))
+                .foregroundStyle(BlitzTheme.success)
+                .padding(.top, 1)
+
+            Text(text)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BlitzTheme.muted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func productPlanButton(_ product: Product) -> some View {
+        Button {
+            Task {
+                await monetization.purchase(product)
+            }
+        } label: {
+            planRowContent(
+                title: title(for: product),
+                subtitle: subtitle(for: product),
+                price: product.displayPrice,
+                trailingSystemImage: "chevron.right"
+            )
+        }
+        .buttonStyle(.plain)
+        .background(planRowBackground(stroke: BlitzTheme.accent.opacity(0.2)))
+        .disabled(monetization.isLoading)
+        .accessibilityHint("Satın alma ekranını açar")
+    }
+
+    private func unavailablePlanRow(_ plan: PremiumPlanPreview) -> some View {
+        planRowContent(
+            title: plan.title,
+            subtitle: plan.subtitle,
+            price: plan.price,
+            trailingSystemImage: "lock.fill"
+        )
+        .opacity(0.72)
+        .background(planRowBackground(stroke: BlitzTheme.dim.opacity(0.24)))
+        .accessibilityHint("Bu seçenek App Store bağlantısı kurulunca satın alınabilir")
+    }
+
+    private func planRowContent(title: String, subtitle: String, price: String, trailingSystemImage: String) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -353,17 +381,29 @@ struct PremiumPaywallView: View {
             Text(price)
                 .font(.headline.weight(.black))
                 .foregroundStyle(BlitzTheme.accent)
+
+            Image(systemName: trailingSystemImage)
+                .font(.subheadline.weight(.black))
+                .foregroundStyle(BlitzTheme.accent)
+                .frame(width: 18)
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(BlitzTheme.cardGradient)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(BlitzTheme.accent.opacity(0.2), lineWidth: 1)
-                }
-        )
     }
-#endif
+
+    private func planRowBackground(stroke: Color) -> some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(BlitzTheme.cardGradient)
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(stroke, lineWidth: 1)
+            }
+    }
+}
+
+private struct PremiumPlanPreview: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String
+    let price: String
 }

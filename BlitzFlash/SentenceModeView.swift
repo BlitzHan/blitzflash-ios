@@ -2,10 +2,11 @@ import SwiftUI
 
 struct SentenceModeView: View {
     var words: [VocabularyWord]
+    var learningLanguage: LearningLanguage = .english
 
     @State private var currentWord: VocabularyWord?
     @State private var recentWordIDs: [UUID] = []
-    @State private var selectedAnswer: String?
+    @State private var selectedAnswerID: UUID?
     @State private var correct = 0
     @State private var wrong = 0
     @State private var currentOptions: [VocabularyWord] = []
@@ -32,7 +33,7 @@ struct SentenceModeView: View {
                         .foregroundStyle(BlitzTheme.ink)
                         .shadow(color: BlitzTheme.success.opacity(0.18), radius: 16, x: 0, y: 0)
 
-                    if selectedAnswer != nil {
+                    if selectedAnswerID != nil {
                         Text(displayedWord.turkishSentence)
                             .font(.body)
                             .multilineTextAlignment(.center)
@@ -44,17 +45,19 @@ struct SentenceModeView: View {
 
             VStack(spacing: 10) {
                 ForEach(currentOptions, id: \.id) { option in
+                    let optionText = option.targetTerm(for: learningLanguage)
+
                     Button {
-                        choose(option.english)
+                        choose(option)
                     } label: {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 5) {
-                                Text(option.english)
-                                    .foregroundStyle(optionTextColor(option.english))
+                                Text(optionText)
+                                    .foregroundStyle(optionTextColor(option))
                                     .lineLimit(2)
                                     .minimumScaleFactor(0.86)
 
-                                if selectedAnswer != nil {
+                                if selectedAnswerID != nil {
                                     Text(option.turkish)
                                         .font(.subheadline.weight(.semibold))
                                         .foregroundStyle(BlitzTheme.muted)
@@ -66,10 +69,10 @@ struct SentenceModeView: View {
 
                             Spacer()
 
-                            if selectedAnswer == option.english {
-                                Image(systemName: option.english == displayedWord.english ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                    .foregroundStyle(option.english == displayedWord.english ? BlitzTheme.success : BlitzTheme.danger)
-                            } else if selectedAnswer != nil, option.english == displayedWord.english {
+                            if selectedAnswerID == option.id {
+                                Image(systemName: option.id == displayedWord.id ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(option.id == displayedWord.id ? BlitzTheme.success : BlitzTheme.danger)
+                            } else if selectedAnswerID != nil, option.id == displayedWord.id {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(BlitzTheme.success)
                             }
@@ -81,18 +84,18 @@ struct SentenceModeView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .background(optionBackground(option.english))
+                    .background(optionBackground(option))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(optionBorder(option.english), lineWidth: 1)
+                            .stroke(optionBorder(option), lineWidth: 1)
                     }
                     .overlay(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(optionAccent(option.english))
+                            .fill(optionAccent(option))
                             .frame(width: 4)
                     }
-                    .disabled(selectedAnswer != nil)
+                    .disabled(selectedAnswerID != nil)
                 }
             }
 
@@ -104,8 +107,8 @@ struct SentenceModeView: View {
                     .padding(.vertical, 13)
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(BlitzProminentButton(tint: selectedAnswer == nil ? BlitzTheme.dim : BlitzTheme.accent, darkText: selectedAnswer != nil))
-            .disabled(selectedAnswer == nil || isAutoAdvancing)
+            .buttonStyle(BlitzProminentButton(tint: selectedAnswerID == nil ? BlitzTheme.dim : BlitzTheme.accent, darkText: selectedAnswerID != nil))
+            .disabled(selectedAnswerID == nil || isAutoAdvancing)
 
             Spacer()
         }
@@ -119,19 +122,26 @@ struct SentenceModeView: View {
     }
 
     private var sentenceWithBlank: String {
-        displayedWord.englishSentence.replacingOccurrences(
-            of: displayedWord.english,
+        let sentence = displayedWord.targetSentence(for: learningLanguage)
+        let answer = correctAnswer
+        let blanked = sentence.replacingOccurrences(
+            of: answer,
             with: "_____",
             options: [.caseInsensitive]
         )
+        return blanked == sentence ? "\(answer) - _____" : blanked
     }
 
-    private func choose(_ option: String) {
-        guard selectedAnswer == nil else { return }
+    private var correctAnswer: String {
+        displayedWord.targetTerm(for: learningLanguage)
+    }
+
+    private func choose(_ option: VocabularyWord) {
+        guard selectedAnswerID == nil else { return }
         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-            selectedAnswer = option
+            selectedAnswerID = option.id
         }
-        if option == displayedWord.english {
+        if option.id == displayedWord.id {
             correct += 1
         } else {
             wrong += 1
@@ -141,7 +151,7 @@ struct SentenceModeView: View {
 
     private func goToNextSentence() {
         isAutoAdvancing = false
-        selectedAnswer = nil
+        selectedAnswerID = nil
         selectRandomSentence()
         prepareOptions()
     }
@@ -180,23 +190,23 @@ struct SentenceModeView: View {
     private func scheduleNextSentence() {
         isAutoAdvancing = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-            guard isAutoAdvancing, selectedAnswer != nil else { return }
+            guard isAutoAdvancing, selectedAnswerID != nil else { return }
             withAnimation(.easeInOut(duration: 0.22)) {
                 goToNextSentence()
             }
         }
     }
 
-    private func optionBackground(_ option: String) -> AnyShapeStyle {
-        guard selectedAnswer != nil else { return AnyShapeStyle(BlitzTheme.surface) }
-        if option == displayedWord.english {
+    private func optionBackground(_ option: VocabularyWord) -> AnyShapeStyle {
+        guard selectedAnswerID != nil else { return AnyShapeStyle(BlitzTheme.surface) }
+        if option.id == displayedWord.id {
             return AnyShapeStyle(LinearGradient(
                 colors: [BlitzTheme.success.opacity(0.28), BlitzTheme.surfaceLight],
                 startPoint: .leading,
                 endPoint: .trailing
             ))
         }
-        if option == selectedAnswer {
+        if option.id == selectedAnswerID {
             return AnyShapeStyle(LinearGradient(
                 colors: [BlitzTheme.danger.opacity(0.3), BlitzTheme.surfaceLight],
                 startPoint: .leading,
@@ -206,23 +216,23 @@ struct SentenceModeView: View {
         return AnyShapeStyle(BlitzTheme.surface)
     }
 
-    private func optionBorder(_ option: String) -> Color {
-        guard let selectedAnswer else { return BlitzTheme.primary.opacity(0.1) }
-        if option == displayedWord.english { return BlitzTheme.success.opacity(0.7) }
-        if option == selectedAnswer { return BlitzTheme.danger.opacity(0.7) }
+    private func optionBorder(_ option: VocabularyWord) -> Color {
+        guard selectedAnswerID != nil else { return BlitzTheme.primary.opacity(0.1) }
+        if option.id == displayedWord.id { return BlitzTheme.success.opacity(0.7) }
+        if option.id == selectedAnswerID { return BlitzTheme.danger.opacity(0.7) }
         return BlitzTheme.primary.opacity(0.08)
     }
 
-    private func optionAccent(_ option: String) -> Color {
-        guard let selectedAnswer else { return BlitzTheme.primary.opacity(0.42) }
-        if option == displayedWord.english { return BlitzTheme.success }
-        if option == selectedAnswer { return BlitzTheme.danger }
+    private func optionAccent(_ option: VocabularyWord) -> Color {
+        guard selectedAnswerID != nil else { return BlitzTheme.primary.opacity(0.42) }
+        if option.id == displayedWord.id { return BlitzTheme.success }
+        if option.id == selectedAnswerID { return BlitzTheme.danger }
         return BlitzTheme.dim
     }
 
-    private func optionTextColor(_ option: String) -> Color {
-        guard selectedAnswer != nil else { return BlitzTheme.ink }
-        if option == displayedWord.english || option == selectedAnswer { return BlitzTheme.ink }
+    private func optionTextColor(_ option: VocabularyWord) -> Color {
+        guard selectedAnswerID != nil else { return BlitzTheme.ink }
+        if option.id == displayedWord.id || option.id == selectedAnswerID { return BlitzTheme.ink }
         return BlitzTheme.muted
     }
 }

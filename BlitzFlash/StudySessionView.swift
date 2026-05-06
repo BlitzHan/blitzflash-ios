@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FreeStudyView: View {
     var words: [VocabularyWord]
+    var learningLanguage: LearningLanguage
 
     @State private var currentIndex = 0
     @State private var correct = 0
@@ -11,8 +12,9 @@ struct FreeStudyView: View {
     @State private var isCardPressed = false
     @State private var prompts: [CardPrompt]
 
-    init(words: [VocabularyWord]) {
+    init(words: [VocabularyWord], learningLanguage: LearningLanguage = .english) {
         self.words = words
+        self.learningLanguage = learningLanguage
         _prompts = State(initialValue: Self.randomPrompts(from: words))
     }
 
@@ -24,20 +26,20 @@ struct FreeStudyView: View {
         currentPrompt.word
     }
 
-    private var showingEnglish: Bool {
-        isShowingAnswer ? !currentPrompt.startsWithEnglish : currentPrompt.startsWithEnglish
+    private var showingTargetLanguage: Bool {
+        isShowingAnswer ? !currentPrompt.startsWithTargetLanguage : currentPrompt.startsWithTargetLanguage
     }
 
     private var languageLabel: String {
-        showingEnglish ? "English" : "Türkçe"
+        showingTargetLanguage ? learningLanguage.cardLabel : "Türkçe"
     }
 
     private var displayedWord: String {
-        showingEnglish ? currentWord.english : currentWord.turkish
+        showingTargetLanguage ? currentWord.targetTerm(for: learningLanguage) : currentWord.turkish
     }
 
     private var displayedSentence: String {
-        showingEnglish ? currentWord.englishSentence : currentWord.turkishSentence
+        showingTargetLanguage ? currentWord.targetSentence(for: learningLanguage) : currentWord.turkishSentence
     }
 
     private var dragProgress: Double {
@@ -100,10 +102,10 @@ struct FreeStudyView: View {
             VStack(spacing: 0) {
                 Text(languageLabel)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(showingEnglish ? BlitzTheme.primary : BlitzTheme.secondary)
+                    .foregroundStyle(showingTargetLanguage ? BlitzTheme.primary : BlitzTheme.secondary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(showingEnglish ? BlitzTheme.primary.opacity(0.18) : BlitzTheme.secondary.opacity(0.2))
+                    .background(showingTargetLanguage ? BlitzTheme.primary.opacity(0.18) : BlitzTheme.secondary.opacity(0.2))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .frame(height: 44)
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -243,13 +245,13 @@ struct FreeStudyView: View {
     }
 
     private static func randomPrompts(from words: [VocabularyWord]) -> [CardPrompt] {
-        words.shuffled().map { CardPrompt(word: $0, startsWithEnglish: Bool.random()) }
+        words.shuffled().map { CardPrompt(word: $0, startsWithTargetLanguage: Bool.random()) }
     }
 }
 
 private struct CardPrompt {
     var word: VocabularyWord
-    var startsWithEnglish: Bool
+    var startsWithTargetLanguage: Bool
 }
 
 struct StatPill: View {
