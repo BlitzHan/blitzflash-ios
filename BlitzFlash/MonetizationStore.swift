@@ -7,12 +7,18 @@ final class MonetizationStore: ObservableObject {
     static let weeklyProductID = "com.blitzhanlabs.BlitzFlash.plus.weekly"
     static let monthlyProductID = "com.blitzhanlabs.BlitzFlash.plus.monthly"
     static let lifetimeProductID = "com.blitzhanlabs.BlitzFlash.premium.lifetime"
+    static let legacyWeeklyProductID = "com.blitzhanlabs.BlitzFlash.premium.weekly"
+    static let legacyMonthlyProductID = "com.blitzhanlabs.BlitzFlash.premium.monthly"
+    static let legacyLifetimeProductID = "com.blitzhanlabs.BlitzFlash.plus.lifetime"
     static let adsEnabled = false
 
     static let productIDs = [
         weeklyProductID,
         monthlyProductID,
-        lifetimeProductID
+        lifetimeProductID,
+        legacyWeeklyProductID,
+        legacyMonthlyProductID,
+        legacyLifetimeProductID
     ]
 
     @Published private(set) var products: [Product] = []
@@ -121,9 +127,9 @@ final class MonetizationStore: ObservableObject {
 
     private func sortIndex(for productID: String) -> Int {
         switch productID {
-        case Self.weeklyProductID: 0
-        case Self.monthlyProductID: 1
-        case Self.lifetimeProductID: 2
+        case Self.weeklyProductID, Self.legacyWeeklyProductID: 0
+        case Self.monthlyProductID, Self.legacyMonthlyProductID: 1
+        case Self.lifetimeProductID, Self.legacyLifetimeProductID: 2
         default: 99
         }
     }
@@ -303,18 +309,18 @@ struct PremiumPaywallView: View {
 
     private func title(for product: Product) -> String {
         switch product.id {
-        case MonetizationStore.weeklyProductID: "Haftalık Plus"
-        case MonetizationStore.monthlyProductID: "Aylık Plus"
-        case MonetizationStore.lifetimeProductID: "Ömür Boyu Plus"
+        case MonetizationStore.weeklyProductID, MonetizationStore.legacyWeeklyProductID: "Haftalık Plus"
+        case MonetizationStore.monthlyProductID, MonetizationStore.legacyMonthlyProductID: "Aylık Plus"
+        case MonetizationStore.lifetimeProductID, MonetizationStore.legacyLifetimeProductID: "Ömür Boyu Plus"
         default: product.displayName
         }
     }
 
     private func subtitle(for product: Product) -> String {
         switch product.id {
-        case MonetizationStore.weeklyProductID: "Kısa süreli Plus erişimi"
-        case MonetizationStore.monthlyProductID: "Düzenli çalışma için Plus erişimi"
-        case MonetizationStore.lifetimeProductID: "Tek ödeme, kalıcı Plus erişimi"
+        case MonetizationStore.weeklyProductID, MonetizationStore.legacyWeeklyProductID: "Kısa süreli Plus erişimi"
+        case MonetizationStore.monthlyProductID, MonetizationStore.legacyMonthlyProductID: "Düzenli çalışma için Plus erişimi"
+        case MonetizationStore.lifetimeProductID, MonetizationStore.legacyLifetimeProductID: "Tek ödeme, kalıcı Plus erişimi"
         default: product.description
         }
     }
