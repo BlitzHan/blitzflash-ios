@@ -106,5 +106,5 @@ Virgülle ayrılmış, boşluksuz, sonda virgül yok. Ad (BlitzFlash), alt başl
 - Satın alma ürünleri sürüme ekli mi, açıklamaları uygulamayla tutarlı mı.
 - Paid Apps Agreement aktif mi (Business > Agreements).
 - Support / Privacy URL'leri açılıyor mu.
-- Ekran görüntüleri: iPhone 6.1" (1206×2622) ve iPhone Duo (`APP_IPHONE_DUO`: dış 1398×2034, iç yatay 2853×2007, iç dik 2007×2853).
+- Ekran görüntüleri: iPhone 6.9" (`APP_IPHONE_67`, 1320×2868, iPhone 18 Pro Max simülatörü) ve iPhone Duo (`APP_IPHONE_DUO`: dış 1398×2034, iç yatay 2853×2007, iç dik 2007×2853). Düz görüntü yüklenmez: ham görüntüler `AppStoreMetadata/screenshots-<sürüm>/` altına çekilir, `swift AppStoreMetadata/compose.swift <ham> <ham>/final` üstte BLITZFLASH etiketi, başlık ve alt başlık bulunan, modun renginde degrade arka planlı tanıtım görsellerini üretir (başlık ≤ 28 karakter, tek satır; listesi betikteki `slides`). Soğuk açılışta görüntü boş çıkabilir: çektikten sonra her görüntüye bak.
 - Yaş derecelendirmesine yeni soru eklendiyse cevapla.
