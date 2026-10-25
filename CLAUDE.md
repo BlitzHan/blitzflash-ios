@@ -34,11 +34,17 @@ Hedefler: iOS 17.0+, iPhone (`TARGETED_DEVICE_FAMILY = 1`). iOS 26+ API'leri (`g
 
 ### iPhone Duo / ekran sınıfları
 
-- `ContentView` kökte boyutu ölçer ve `\.blitzLayout` (`BlitzLayout`) yayar: `isWide` = Duo iç ekranı **yatay** (genişlik ≥ 560 ve genişlik > yükseklik), `isShort` = yükseklik < 660 (Duo dış ekranı, iPhone SE).
-- İki bölmeli düzen `AdaptiveSplit { birincil } secondary: { ikincil }`: iç ekranda bölmeler arası boşluk ekranın ortasındaki katlanma çizgisine denk gelir (`ScreenCenterReader`), diğer ekranlarda alt alta dizer. Mod ekranları kartı birincil, cevap/istatistik/düğmeleri ikincil bölmeye koyar.
+- `ContentView` kökte boyutu ve güvenli alanı ölçer, `\.blitzLayout` (`BlitzLayout`) yayar:
+  - `isWide`: iç ekran **yatay** (kısa kenar ≥ 560, genişlik > yükseklik). Katlanma çizgisi dikey; bölmeler yan yana.
+  - `isTall`: iç ekran **dik** (kısa kenar ≥ 560, yükseklik > genişlik). Çizgi yatay; yarı açık "dizüstü" duruşunda üst yarı okunur, alt yarıya dokunulur. Bölmeler üst üste.
+  - `isSplit` = `isWide || isTall`. `isShort` = yükseklik < 660 (Duo dış ekranı, iPhone SE).
+  - `isHalfOpen`: menteşe yarı açık (iOS 27.1 `onHingeChange`, `readsHalfOpenHinge`); bölmeler arası boşluk 40 → 64pt.
+  - `sideRailWidth` / `hasSideRail`: iOS 27 Duo dış ekranında durum ve araç çubuğunu sağda ~90pt'lik dikey şeride alır; üstünde kamera, saat ve araç düğmeleri, altı boş.
+- İki bölmeli düzen `AdaptiveSplit { birincil } secondary: { ikincil }`: bölmeler arası boşluk ekranın orta noktasına (katlanma çizgisi, `ScreenCenterReader`) oturur; diğer ekranlarda alt alta dizer. **Kural:** okunacak metin (kart, soru) birincil, sayaç/ilerleme/düğmeler ikincil. Bölmelere yayılan tam genişlikte hiçbir şey koyma (sayaç satırı, sonuç kartı); hepsi bir bölmenin içinde olur.
+- Dik düzende klavye alt yarıyı örter (`ignoresSafeArea(.keyboard)`): yazı alanı olan modlarda (Yazarak Tahmin, Kelime Avı) yazı alanı birincil (üst) bölmededir.
+- Dış ekran şeridi: sayaçlar ve günlük hak `.sideRail(layout) { … }` ile şeridin boş alt kısmına yerleşir, ekran kendi sayaç satırını göstermez. `StatPill`/`StatGroup` şeritte (`isInSideRail`) dikey ve sade çizilir. Araç çubuğuna fazladan öğe ekleme: şerit sığmayanı üstteki ayrı bir sıraya taşır.
 - Yön: Info.plist iPhone'da yatayı açar (yoksa Duo iç ekranı uyumluluk penceresinde açılır); `AppDelegate` kısa kenarı < 600pt olan ekranları dikeye kilitler.
-- Duo dış ekranında iOS 27 durum çubuğunu ve araç çubuğunu sağ kenara alır; içerik genişliği ~420pt kalır.
-- Simülatör: "iPhone Duo" cihazı; duruş (katlı/açık) Device Hub'daki düğmelerle değişir. Ekran görüntüsü için `xcrun simctl io <udid> enumerate` ile iç (2007 genişlik) / dış (1398) ekran UUID'sini al, `screenshot --display=<uuid>`.
+- Simülatör: "iPhone Duo" cihazı; duruş (katlı / yarı açık / açık) Device Hub'daki düğmelerle değişir, simülatör aracındaki `rotate` iç ekranı döndürür. DEBUG derlemede `-skipSplash YES -openMode free|typing|sentence|hunt` doğrudan bir modu açar. Ekran görüntüsü için `xcrun simctl io <udid> enumerate` ile iç (2007/2853) / dış (1398) ekran UUID'sini al, `screenshot --display=<uuid>`. ASC'de ayrı yuva: `APP_IPHONE_DUO`.
 
 ## Gizlilik / Dağıtım
 
@@ -100,5 +106,5 @@ Virgülle ayrılmış, boşluksuz, sonda virgül yok. Ad (BlitzFlash), alt başl
 - Satın alma ürünleri sürüme ekli mi, açıklamaları uygulamayla tutarlı mı.
 - Paid Apps Agreement aktif mi (Business > Agreements).
 - Support / Privacy URL'leri açılıyor mu.
-- Ekran görüntüleri: iPhone 6.1" (1206×2622) ve iPhone Duo (dış 1398×2034, iç 2853×2007).
+- Ekran görüntüleri: iPhone 6.1" (1206×2622) ve iPhone Duo (`APP_IPHONE_DUO`: dış 1398×2034, iç yatay 2853×2007, iç dik 2007×2853).
 - Yaş derecelendirmesine yeni soru eklendiyse cevapla.

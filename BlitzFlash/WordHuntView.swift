@@ -45,10 +45,27 @@ struct WordHuntView: View {
                     finishButton
                 }
                 .padding(20)
+            } else if layout.isTall {
+                // Dik / yarı açık: soru ve yazı alanı üst yarıda (klavye alt yarıyı örter),
+                // ızgara alt yarıda parmağın altında.
+                AdaptiveSplit {
+                    statsRow
+                    if let selectedWord {
+                        answerPanel(for: selectedWord)
+                    } else {
+                        placeholderPanel
+                    }
+                    Spacer(minLength: 0)
+                } secondary: {
+                    ScrollView { grid }
+                        .scrollIndicators(.hidden)
+                    finishButton
+                }
+                .padding(20)
             } else {
                 ScrollView {
                     VStack(spacing: 16) {
-                        statsRow
+                        if !layout.hasSideRail { statsRow }
                         grid
                         finishButton
                     }
@@ -68,6 +85,7 @@ struct WordHuntView: View {
         .blitzScreen()
         .navigationTitle(BlitzMode.hunt.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sideRail(layout) { if !isFinished { statsRow } }
         .sensoryFeedback(.success, trigger: solved.count)
         .sensoryFeedback(.error, trigger: failed.count)
         .onAppear {
@@ -76,7 +94,7 @@ struct WordHuntView: View {
     }
 
     private var statsRow: some View {
-        HStack {
+        StatGroup {
             StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
             StatPill(title: "Bitti", value: solved.count + failed.count, color: BlitzTheme.success)
             StatPill(title: "Toplam", value: roundWords.count, color: BlitzTheme.muted)
@@ -146,7 +164,7 @@ struct WordHuntView: View {
                 Image(systemName: "hand.tap.fill")
                     .font(.largeTitle)
                     .foregroundStyle(BlitzTheme.accent)
-                Text("Soldan bir kart seç")
+                Text(layout.isTall ? "Aşağıdan bir kart seç" : "Soldan bir kart seç")
                     .font(.headline)
                     .foregroundStyle(BlitzTheme.ink)
                 if let feedback {
@@ -256,7 +274,7 @@ struct WordHuntView: View {
     }
 
     private var resultView: some View {
-        VStack(spacing: 18) {
+        AdaptiveSplit(spacing: 18) {
             ResultCard(
                 title: "Kelime Avı Sonucu",
                 score: score,
@@ -264,16 +282,16 @@ struct WordHuntView: View {
                 finishedAt: finishedAt,
                 onReplay: newRound
             )
-
+            if layout.isSplit { Spacer(minLength: 0) }
+        } secondary: {
             HStack(spacing: 10) {
                 StatPill(title: "Doğru", value: solved.count, color: BlitzTheme.success)
                 StatPill(title: "Kaçan", value: failed.count, color: BlitzTheme.danger)
                 StatPill(title: "Toplam", value: roundWords.count, color: BlitzTheme.muted)
             }
-
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: 520)
+        .frame(maxWidth: layout.isSplit ? .infinity : 520)
         .padding(20)
     }
 

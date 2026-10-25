@@ -136,10 +136,12 @@ struct StatPill: View {
     var value: Int
     var color: Color
 
+    @Environment(\.isInSideRail) private var isInSideRail
+
     var body: some View {
-        VStack(spacing: 3) {
+        let label = VStack(spacing: isInSideRail ? 1 : 3) {
             Text("\(value)")
-                .font(.headline.weight(.bold))
+                .font(isInSideRail ? .subheadline.weight(.bold) : .headline.weight(.bold))
                 .foregroundStyle(color)
                 .contentTransition(.numericText(value: Double(value)))
                 .animation(.snappy, value: value)
@@ -147,11 +149,37 @@ struct StatPill: View {
             Text(title)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(BlitzTheme.muted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(BlitzTheme.surface, in: .rect(cornerRadius: 12))
-        .shadow(color: BlitzTheme.cardShadow, radius: 6, x: 0, y: 2)
+        .monospacedDigit()
+
+        if isInSideRail {
+            label
+                .frame(width: 52)
+                .accessibilityElement(children: .combine)
+        } else {
+            label
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(BlitzTheme.surface, in: .rect(cornerRadius: 12))
+                .shadow(color: BlitzTheme.cardShadow, radius: 6, x: 0, y: 2)
+        }
+    }
+}
+
+/// Sayaç satırı: normalde yan yana, yan şeritte alt alta.
+struct StatGroup<Content: View>: View {
+    @ViewBuilder var content: Content
+    @Environment(\.isInSideRail) private var isInSideRail
+
+    var body: some View {
+        if isInSideRail {
+            VStack(spacing: 12) { content }
+                .padding(.vertical, 8)
+        } else {
+            HStack { content }
+        }
     }
 }
 

@@ -26,29 +26,46 @@ struct TypingModeView: View {
 
     var body: some View {
         VStack(spacing: layout.isShort ? 12 : 18) {
-            if !layout.isWide {
+            if !layout.isSplit && !layout.hasSideRail {
                 statsRow
             }
 
             if isFinished {
-                ResultCard(
-                    title: "Yazarak Tahmin Sonucu",
-                    score: score,
-                    detail: "\(correct) doğru, \(wrong) yanlış",
-                    finishedAt: finishedAt,
-                    onReplay: restart
-                )
-                Spacer()
+                // İç ekranda sonuç bir bölmede, sayaçlar diğerinde; kart çizgiye denk gelmez.
+                AdaptiveSplit {
+                    ResultCard(
+                        title: "Yazarak Tahmin Sonucu",
+                        score: score,
+                        detail: "\(correct) doğru, \(wrong) yanlış",
+                        finishedAt: finishedAt,
+                        onReplay: restart
+                    )
+                    Spacer(minLength: 0)
+                } secondary: {
+                    if layout.isSplit { statsRow }
+                    Spacer(minLength: 0)
+                }
             } else {
                 AdaptiveSplit {
                     wordCard
-                    if layout.isWide { Spacer(minLength: 0) }
+                    if layout.isTall {
+                        // Dikte klavye alt yarıyı kaplar: yazı alanı kartla birlikte üstte.
+                        answerField
+                        feedbackSlot
+                    }
+                    if layout.isSplit { Spacer(minLength: 0) }
                 } secondary: {
-                    if layout.isWide {
+                    if layout.isSplit {
                         statsRow
                         timerBar
                     }
-                    answerControls
+                    if layout.isTall {
+                        checkButton
+                    } else {
+                        answerField
+                        checkButton
+                        feedbackSlot
+                    }
                     Spacer(minLength: 0)
                 }
             }
@@ -57,6 +74,7 @@ struct TypingModeView: View {
         .blitzScreen()
         .navigationTitle(BlitzMode.typing.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sideRail(layout) { statsRow }
         .sensoryFeedback(.success, trigger: correct)
         .sensoryFeedback(.error, trigger: wrong)
         .onAppear {
@@ -74,7 +92,7 @@ struct TypingModeView: View {
     }
 
     private var statsRow: some View {
-        HStack {
+        StatGroup {
             StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
             StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
             StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
@@ -113,28 +131,31 @@ struct TypingModeView: View {
                         .foregroundStyle(BlitzTheme.muted)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: layout.isShort ? 160 : 220)
+            .frame(maxWidth: .infinity, minHeight: layout.isShort || layout.isTall ? 150 : 220)
         }
     }
 
-    private var answerControls: some View {
-        VStack(spacing: 12) {
-            TextField("Türkçe çevirisini yaz...", text: $answer)
-                .blitzAnswerField()
-                .focused($isFieldFocused)
-                .onSubmit(checkAnswer)
-                .disabled(feedback != nil)
+    private var answerField: some View {
+        TextField("Türkçe çevirisini yaz...", text: $answer)
+            .blitzAnswerField()
+            .focused($isFieldFocused)
+            .onSubmit(checkAnswer)
+            .disabled(feedback != nil)
+    }
 
-            Button(action: checkAnswer) {
-                BlitzButtonLabel(title: "Kontrol Et", icon: "arrow.right")
-            }
-            .blitzButton()
-            .disabled(feedback != nil || answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    private var checkButton: some View {
+        Button(action: checkAnswer) {
+            BlitzButtonLabel(title: "Kontrol Et", icon: "arrow.right")
+        }
+        .blitzButton()
+        .disabled(feedback != nil || answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    }
 
-            if let feedback {
-                feedbackPanel(feedback)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+    @ViewBuilder
+    private var feedbackSlot: some View {
+        if let feedback {
+            feedbackPanel(feedback)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 

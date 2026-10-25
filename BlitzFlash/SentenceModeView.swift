@@ -20,15 +20,13 @@ struct SentenceModeView: View {
 
     var body: some View {
         VStack(spacing: layout.isShort ? 12 : 18) {
-            HStack {
-                StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
-                StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
-            }
+            if !layout.isWide && !layout.hasSideRail { statsRow }
 
             AdaptiveSplit {
                 questionCard
                 if layout.isWide { Spacer(minLength: 0) }
             } secondary: {
+                if layout.isWide { statsRow }
                 VStack(spacing: 10) {
                     ForEach(options) { optionButton($0) }
                 }
@@ -46,12 +44,20 @@ struct SentenceModeView: View {
         .blitzScreen()
         .navigationTitle(BlitzMode.sentence.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sideRail(layout) { statsRow }
         .sensoryFeedback(.success, trigger: correct)
         .sensoryFeedback(.error, trigger: wrong)
         .onAppear {
             if currentWord == nil { next() }
         }
         .onDisappear { delay.cancel() }
+    }
+
+    private var statsRow: some View {
+        StatGroup {
+            StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
+            StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
+        }
     }
 
     private var questionCard: some View {

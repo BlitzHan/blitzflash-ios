@@ -4,12 +4,14 @@ struct HomeView: View {
     @Environment(MonetizationStore.self) private var monetization
     @Environment(\.blitzLayout) private var layout
     @AppStorage("learningLanguage") private var learningLanguage = LearningLanguage.english
+    @State private var path: [BlitzMode] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
-                if layout.isWide {
-                    // Duo iç ekranı: solda marka, dil ve günlük hak; sağda dört mod ekranı doldurur.
+                if layout.isSplit {
+                    // Duo iç ekranı: bir bölmede marka, dil ve günlük hak; diğerinde dört mod
+                    // (yatayda sağda, dikte/yarı açıkta alt yarıda, parmağın altında).
                     AdaptiveSplit(spacing: 20) {
                         BrandHeader(compact: false)
                         Picker("Dil", selection: $learningLanguage) {
@@ -20,9 +22,21 @@ struct HomeView: View {
                         WordOfTheDayCard(language: learningLanguage)
                         Spacer(minLength: 0)
                     } secondary: {
-                        modeGrid(fillsHeight: true)
+                        modeGrid(fillsHeight: true, isLarge: true)
                     }
                     .padding(24)
+                } else if layout.hasSideRail {
+                    // Duo dış ekranı: günlük hak sağ şeritte; dört mod kalan alanı boydan boya doldurur.
+                    VStack(alignment: .leading, spacing: 14) {
+                        BrandHeader(compact: true)
+                        modeGrid(fillsHeight: true, isLarge: false)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                    .sideRail(layout) {
+                        if !monetization.isPremium { RailAllowance() }
+                    }
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: layout.isShort ? 14 : 22) {
@@ -30,7 +44,7 @@ struct HomeView: View {
                             DailyAllowanceCard()
                             if layout.isShort {
                                 // Duo dış ekranı: dört mod kaydırmadan sığsın diye 2×2.
-                                modeGrid(fillsHeight: false)
+                                modeGrid(fillsHeight: false, isLarge: false)
                             } else {
                                 VStack(spacing: 12) {
                                     ForEach(BlitzMode.allCases) { mode in
@@ -49,7 +63,7 @@ struct HomeView: View {
             .blitzScreen()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if !layout.isWide {
+                if !layout.isSplit {
                     ToolbarItem(placement: .topBarLeading) {
                         Menu {
                             Picker("Çalışılan dil", selection: $learningLanguage) {
@@ -75,14 +89,22 @@ struct HomeView: View {
                 destination(for: mode)
             }
         }
+        #if DEBUG
+        // Ekran görüntüsü ve test için: `-openMode typing` doğrudan o modu açar.
+        .onAppear {
+            if path.isEmpty, let mode = UserDefaults.standard.string(forKey: "openMode").flatMap(BlitzMode.init) {
+                path = [mode]
+            }
+        }
+        #endif
     }
 
-    private func modeGrid(fillsHeight: Bool) -> some View {
+    private func modeGrid(fillsHeight: Bool, isLarge: Bool) -> some View {
         VStack(spacing: 12) {
             ForEach([[BlitzMode.free, .typing], [BlitzMode.sentence, .hunt]], id: \.self) { row in
                 HStack(spacing: 12) {
                     ForEach(row) { mode in
-                        NavigationLink(value: mode) { ModeTile(mode: mode, isLarge: fillsHeight) }
+                        NavigationLink(value: mode) { ModeTile(mode: mode, isLarge: isLarge, fillsHeight: fillsHeight) }
                             .buttonStyle(.plain)
                     }
                 }
@@ -183,6 +205,37 @@ private struct DailyAllowanceCard: View {
         }
         .buttonStyle(.plain)
         .disabled(monetization.isPremium)
+    }
+}
+
+/// Duo dış ekranı sağ şeridi: bugün kalan hak. Dokununca Plus sayfası açılır.
+private struct RailAllowance: View {
+    @Environment(MonetizationStore.self) private var monetization
+
+    var body: some View {
+        Button {
+            monetization.isPaywallPresented = true
+        } label: {
+            VStack(spacing: 4) {
+                Gauge(value: Double(monetization.remainingToday), in: 0...Double(MonetizationStore.freeDailyLimit)) {
+                    EmptyView()
+                } currentValueLabel: {
+                    Text("\(monetization.remainingToday)")
+                        .font(.subheadline.weight(.bold).monospacedDigit())
+                }
+                .gaugeStyle(.accessoryCircularCapacity)
+                .tint(monetization.remainingToday > 5 ? BlitzTheme.primary : BlitzTheme.danger)
+                .scaleEffect(0.8)
+                .frame(width: 48, height: 48)
+
+                Text("hak")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(BlitzTheme.muted)
+            }
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Bugünkü hakkın: \(monetization.remainingToday)")
     }
 }
 
@@ -287,6 +340,7 @@ private struct ModeRow: View {
 private struct ModeTile: View {
     var mode: BlitzMode
     var isLarge: Bool
+    var fillsHeight = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: isLarge ? 10 : 6) {
@@ -303,10 +357,10 @@ private struct ModeTile: View {
             Text(mode.subtitle)
                 .font(isLarge ? .subheadline : .caption)
                 .foregroundStyle(BlitzTheme.muted)
-                .lineLimit(2, reservesSpace: true)
+                .lineLimit(isLarge ? 3 : 2, reservesSpace: true)
         }
         .padding(isLarge ? 20 : 14)
-        .frame(maxWidth: .infinity, minHeight: isLarge ? 160 : 132, maxHeight: isLarge ? .infinity : nil, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: isLarge ? 160 : 132, maxHeight: fillsHeight ? .infinity : nil, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(BlitzTheme.surface)

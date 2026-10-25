@@ -46,26 +46,21 @@ struct FreeStudyView: View {
 
     var body: some View {
         VStack(spacing: layout.isShort ? 12 : 18) {
-            if !layout.isWide {
+            if !layout.isSplit && !layout.hasSideRail {
                 statsRow
             }
 
+            // Dikte (yarı açık) üst yarı yalnız karta ayrılır; ipucu çizginin altına iner.
             AdaptiveSplit {
                 Spacer(minLength: 0)
                 studyCard
-                Text("Kartı açmak için dokun. Sağa Bildim, sola Bilemedim.")
-                    .font(.footnote)
-                    .foregroundStyle(BlitzTheme.muted)
-                    .multilineTextAlignment(.center)
+                if !layout.isTall { hint }
                 Spacer(minLength: 0)
             } secondary: {
-                if layout.isWide {
-                    statsRow
-                    progress
-                    historyList
-                } else {
-                    progress
-                }
+                if layout.isTall { hint }
+                if layout.isSplit { statsRow }
+                progress
+                if layout.isSplit { historyList }
                 Spacer(minLength: 0)
                 actionButtons
             }
@@ -74,13 +69,21 @@ struct FreeStudyView: View {
         .blitzScreen()
         .navigationTitle(BlitzMode.free.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sideRail(layout) { statsRow }
         .sensoryFeedback(.success, trigger: correct)
         .sensoryFeedback(.impact(weight: .light), trigger: wrong)
         .onDisappear { delay.cancel() }
     }
 
+    private var hint: some View {
+        Text("Kartı açmak için dokun. Sağa Bildim, sola Bilemedim.")
+            .font(.footnote)
+            .foregroundStyle(BlitzTheme.muted)
+            .multilineTextAlignment(.center)
+    }
+
     private var statsRow: some View {
-        HStack {
+        StatGroup {
             StatPill(title: "Bildim", value: correct, color: BlitzTheme.success)
             StatPill(title: "Bilemedim", value: wrong, color: BlitzTheme.danger)
             StatPill(title: "Toplam", value: prompts.count, color: BlitzTheme.primary)
@@ -112,7 +115,8 @@ struct FreeStudyView: View {
         }
     }
 
-    /// Duo iç ekranında sağ bölmede son kartlar: tekrar göz atmak için.
+    /// Duo iç ekranında ikincil bölmede son kartlar: tekrar göz atmak için.
+    /// Üst üste düzende alt yarı kısa olduğundan son üç kart.
     private var historyList: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Son kartlar")
@@ -125,7 +129,7 @@ struct FreeStudyView: View {
                     .foregroundStyle(BlitzTheme.muted)
             }
 
-            ForEach(history) { card in
+            ForEach(history.prefix(layout.isTall ? 3 : 8)) { card in
                 HStack(spacing: 10) {
                     Image(systemName: card.knew ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(card.knew ? BlitzTheme.success : BlitzTheme.danger)
@@ -193,7 +197,7 @@ struct FreeStudyView: View {
             }
             .contentTransition(.opacity)
             .padding(24)
-            .frame(maxWidth: .infinity, minHeight: layout.isShort ? 250 : 320)
+            .frame(maxWidth: .infinity, minHeight: layout.isShort || layout.isTall ? 250 : 320)
             .background {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(BlitzTheme.surface)

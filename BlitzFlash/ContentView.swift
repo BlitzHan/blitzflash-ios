@@ -2,7 +2,12 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(MonetizationStore.self) private var monetization
+    #if DEBUG
+    @State private var showSplash = !UserDefaults.standard.bool(forKey: "skipSplash")
+    #else
     @State private var showSplash = true
+    #endif
+    @State private var isHalfOpen = false
 
     var body: some View {
         @Bindable var monetization = monetization
@@ -10,8 +15,9 @@ struct ContentView: View {
         ZStack {
             GeometryReader { proxy in
                 HomeView()
-                    .environment(\.blitzLayout, BlitzLayout(size: proxy.size))
+                    .environment(\.blitzLayout, BlitzLayout(size: proxy.size, safeArea: proxy.safeAreaInsets, isHalfOpen: isHalfOpen))
             }
+            .readsHalfOpenHinge($isHalfOpen)
             .opacity(showSplash ? 0 : 1)
 
             if showSplash {
@@ -34,24 +40,32 @@ struct ContentView: View {
 
 private struct SplashView: View {
     var body: some View {
-        ZStack {
-            BlitzBackground()
-
-            VStack(spacing: 20) {
-                BlitzLogoMark(size: 110, cornerRadius: 26)
-
-                VStack(spacing: 6) {
-                    Text("BlitzFlash")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
-                        .foregroundStyle(BlitzTheme.ink)
-
-                    Text("Kelimeyi yakala.")
-                        .font(.headline)
-                        .foregroundStyle(BlitzTheme.muted)
-                }
+        GeometryReader { proxy in
+            ZStack {
+                BlitzBackground()
+                content
+                    // Duo iç ekranı dik / yarı açıkken logo katlanma çizgisine değil üst yarıya oturur.
+                    .padding(.bottom, BlitzLayout(size: proxy.size).isTall ? proxy.size.height / 2 : 0)
             }
-            .padding(.horizontal, 28)
         }
+        .ignoresSafeArea()
+    }
+
+    private var content: some View {
+        VStack(spacing: 20) {
+            BlitzLogoMark(size: 110, cornerRadius: 26)
+
+            VStack(spacing: 6) {
+                Text("BlitzFlash")
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .foregroundStyle(BlitzTheme.ink)
+
+                Text("Kelimeyi yakala.")
+                    .font(.headline)
+                    .foregroundStyle(BlitzTheme.muted)
+            }
+        }
+        .padding(.horizontal, 28)
     }
 }
 
