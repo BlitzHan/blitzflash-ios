@@ -8,7 +8,7 @@ Plus, ücretsiz kullanımdaki günlük 40 soru sınırını kaldırır. Reklam y
 | --- | --- | --- | --- | --- |
 | Haftalık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.plus.weekly` | ₺24,99 | Prepare for Submission |
 | Aylık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.plus.monthly` | ₺89,99 | Prepare for Submission |
-| Yıllık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.plus.yearly` | ₺499,99 ($9,99) | Oluşturuldu (Apple ID 6826833452), inceleme görseli eksik |
+| Yıllık Plus | Otomatik yenilenen abonelik | `com.blitzhanlabs.BlitzFlash.plus.yearly` | ₺499,99 ($9,99) | Prepare for Submission (Apple ID 6826833452) |
 | Ömür Boyu Plus | Non-consumable | `com.blitzhanlabs.BlitzFlash.premium.lifetime` | ₺999,99 | Prepare for Submission |
 
 Abonelikler "BlitzFlash Plus" grubunda (ID 22053982). Hepsi aynı hizmeti verdiği için grupta aynı seviyeye (level) konabilir.
@@ -24,11 +24,31 @@ Abonelikler "BlitzFlash Plus" grubunda (ID 22053982). Hepsi aynı hizmeti verdi�
 
 Yapıldı (25.10.2026): yıllık abonelik oluşturuldu ve 175 bölgede fiyatlandı; ömür boyu ₺999,99 yapıldı; dört ürünün Türkçe açıklaması ve İngilizce inceleme notu günlük sınır diliyle güncellendi; grup görünen adı "BlitzFlash Plus" oldu; ASC'de 2.0 sürümü açıldı, Support URL ve Privacy Policy URL destek sitesine bağlandı.
 
+Ayrıca yapıldı: dört ürüne yeni inceleme görseli yüklendi; 2.0 metinleri, App Review notu girildi; build 2.0 (1) yüklenip sürüme bağlandı.
+
 Kalan:
-1. Business > Agreements: W-8BEN vergi formunu doldur, banka hesabının onaylanmasını bekle. Paid Apps Agreement "Active" olmalı.
-2. Dört ürünün "Review Information > Screenshot" alanına `AppStoreMetadata/plus-review-2.0.jpg` yükle (yıllıkta zorunlu; diğerlerindeki eski görsel reklam vaadi ve eski fiyat gösteriyor).
-3. 2.0 build'ini yükle, sürüm sayfasında "In-App Purchases and Subscriptions" bölümüne dört ürünü de ekle, metinleri `AppStoreMetadata/2.0.md`'den yapıştır ve gönder.
-4. App Review notuna: "Free users can answer 40 questions per day; when the limit is reached the Plus paywall opens. It also opens from the crown button on the home screen."
+1. W-8BEN vergi formu (aşağıdaki adımlar) ve banka onayı → Paid Apps Agreement "Active".
+2. Sözleşme aktif olunca 2.0 sürüm sayfasında "In-App Purchases and Subscriptions" bölümü görünür: dört ürünü ekle ve "Submit for Review". (Apple bu bölümü sözleşme aktif olmadan gizliyor.)
+
+## W-8BEN vergi formu (adım adım, ~10 dakika)
+
+Bu form ABD'ye "ABD vatandaşı değilim, Türkiye'de vergi mükellefiyim" beyanıdır. Doldurulmazsa Paid Apps Agreement aktif olmaz ve hiçbir satın alma çalışmaz.
+
+1. appstoreconnect.apple.com → **Business** → üstte "One or more tax forms still need to be completed" uyarısındaki **Add Tax Form**'a tıkla (ya da Tax Forms tablosundaki "U.S. Form W-8BEN" satırı).
+2. "Are you a U.S. citizen, resident or entity?" → **No**.
+3. Hesap türü → **Individual / Sole Proprietor** (şahıs olarak çalışıyorsan).
+4. **Part I — Kimlik bilgileri:**
+   - Name: kimlikteki ad soyad (Türkçe karakter yerine İngilizce harf: YILDIRIM YIGIT)
+   - Country of citizenship: **Turkey**
+   - Permanent residence address: Türkiye'deki ikamet adresin (posta kutusu olmaz)
+   - U.S. TIN: **boş bırak**
+   - Foreign TIN: **T.C. kimlik numaran** (Türkiye'de şahısların vergi numarası budur)
+   - Date of birth: doğum tarihin
+5. **Part II — Vergi antlaşması:** Türkiye ile ABD arasında çifte vergilendirmeyi önleme antlaşması var. "Claim tax treaty benefits" → **Yes**, ülke **Turkey**. Apple'ın ekranında madde ve oran (Article / Rate) seçenekleri çıkar; uygulama satışı geliri için ekrandaki önerilen seçimi kullan. Emin değilsen mali müşavirine sor. Bu bölüm yalnızca ABD'deki satışlardan kesilecek vergiyi azaltır; boş bırakırsan ABD satışlarından %30 kesilir.
+6. **Part III — İmza:** "I certify…" kutularını işaretle, imza alanına adını yaz, "Capacity" → **Individual**, tarih bugünün tarihi. **Submit**.
+7. Formun durumu birkaç dakika içinde "Active" olur. Banka hesabı ("Processing") 24 saat içinde onaylanınca Paid Apps Agreement **Active** olur.
+
+Bu iki durum Active olunca söyle; 2.0'ı ürünlerle birlikte incelemeye gönderelim.
 
 ## Yerel test
 
