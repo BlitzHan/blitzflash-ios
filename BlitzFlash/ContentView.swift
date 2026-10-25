@@ -1,12 +1,18 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(MonetizationStore.self) private var monetization
     @State private var showSplash = true
 
     var body: some View {
+        @Bindable var monetization = monetization
+
         ZStack {
-            HomeView()
-                .opacity(showSplash ? 0 : 1)
+            GeometryReader { proxy in
+                HomeView()
+                    .environment(\.blitzLayout, BlitzLayout(size: proxy.size))
+            }
+            .opacity(showSplash ? 0 : 1)
 
             if showSplash {
                 SplashView()
@@ -14,6 +20,9 @@ struct ContentView: View {
             }
         }
         .tint(BlitzTheme.primary)
+        .sheet(isPresented: $monetization.isPaywallPresented) {
+            PremiumPaywallView()
+        }
         .task {
             try? await Task.sleep(for: .seconds(1.35))
             withAnimation(.easeInOut(duration: 0.35)) {
@@ -28,18 +37,17 @@ private struct SplashView: View {
         ZStack {
             BlitzBackground()
 
-            VStack(spacing: 18) {
-                BlitzLogoMark(size: 126, cornerRadius: 28)
-                    .shadow(color: BlitzTheme.accent.opacity(0.34), radius: 30, x: 0, y: 0)
+            VStack(spacing: 20) {
+                BlitzLogoMark(size: 110, cornerRadius: 26)
 
                 VStack(spacing: 6) {
                     Text("BlitzFlash")
-                        .font(.system(size: 42, weight: .black, design: .rounded))
+                        .font(.system(size: 38, weight: .bold, design: .rounded))
                         .foregroundStyle(BlitzTheme.ink)
 
                     Text("Kelimeyi yakala.")
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(BlitzTheme.accent)
+                        .font(.headline)
+                        .foregroundStyle(BlitzTheme.muted)
                 }
             }
             .padding(.horizontal, 28)
@@ -57,16 +65,6 @@ struct BlitzLogoMark: View {
             .scaledToFill()
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [BlitzTheme.accent.opacity(0.9), BlitzTheme.primary.opacity(0.38)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
+            .shadow(color: BlitzTheme.cardShadow, radius: 10, x: 0, y: 4)
     }
 }

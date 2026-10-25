@@ -1,415 +1,148 @@
-import Combine
+import Observation
 import StoreKit
 import SwiftUI
 
+/// Plus satın alma durumu ve ücretsiz kullanıcının günlük hakkı.
+/// Ücretsiz kullanıcı günde `freeDailyLimit` kart/soru cevaplar; Plus sınırsızdır.
 @MainActor
-final class MonetizationStore: ObservableObject {
-    static let weeklyProductID = "com.blitzhanlabs.BlitzFlash.plus.weekly"
-    static let monthlyProductID = "com.blitzhanlabs.BlitzFlash.plus.monthly"
-    static let lifetimeProductID = "com.blitzhanlabs.BlitzFlash.premium.lifetime"
-    static let legacyWeeklyProductID = "com.blitzhanlabs.BlitzFlash.premium.weekly"
-    static let legacyMonthlyProductID = "com.blitzhanlabs.BlitzFlash.premium.monthly"
-    static let legacyLifetimeProductID = "com.blitzhanlabs.BlitzFlash.plus.lifetime"
-    static let adsEnabled = false
+@Observable
+final class MonetizationStore {
+    enum Plan: String, CaseIterable {
+        case weekly = "com.blitzhanlabs.BlitzFlash.plus.weekly"
+        case monthly = "com.blitzhanlabs.BlitzFlash.plus.monthly"
+        case yearly = "com.blitzhanlabs.BlitzFlash.plus.yearly"
+        case lifetime = "com.blitzhanlabs.BlitzFlash.premium.lifetime"
 
-    static let productIDs = [
-        weeklyProductID,
-        monthlyProductID,
-        lifetimeProductID,
-        legacyWeeklyProductID,
-        legacyMonthlyProductID,
-        legacyLifetimeProductID
-    ]
-
-    @Published private(set) var products: [Product] = []
-    @Published private(set) var purchasedProductIDs: Set<String> = []
-    @Published var errorMessage: String?
-    @Published var isLoading = false
-    @Published private(set) var didAttemptProductLoad = false
-
-    private var transactionUpdatesTask: Task<Void, Never>?
-
-    var isPremium: Bool {
-        !purchasedProductIDs.isDisjoint(with: Self.productIDs)
+        static let subscriptionIDs = [weekly, monthly, yearly].map(\.rawValue)
     }
 
-    var sortedProducts: [Product] {
-        products.sorted { lhs, rhs in
-            sortIndex(for: lhs.id) < sortIndex(for: rhs.id)
+    static let freeDailyLimit = 40
+    static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+    static let privacyURL = URL(string: "https://blitzhan.github.io/blitzflash/gizlilik.html")!
+
+    private(set) var isPremium = false
+    private(set) var usedToday = 0
+    /// Hak bitince kök görünümdeki Plus sayfası açılır.
+    var isPaywallPresented = false
+
+    @ObservationIgnored private var updatesTask: Task<Void, Never>?
+    @ObservationIgnored private let defaults = UserDefaults.standard
+
+    init() {
+        usedToday = defaults.string(forKey: "dailyUsageDay") == Self.today ? defaults.integer(forKey: "dailyUsageCount") : 0
+    }
+
+    var remainingToday: Int {
+        max(Self.freeDailyLimit - usedToday, 0)
+    }
+
+    /// Bir kart/soru harcar. Hak yoksa Plus sayfasını açar ve `false` döner.
+    func spend() -> Bool {
+        if isPremium { return true }
+        if defaults.string(forKey: "dailyUsageDay") != Self.today {
+            defaults.set(Self.today, forKey: "dailyUsageDay")
+            usedToday = 0
         }
+        guard usedToday < Self.freeDailyLimit else {
+            isPaywallPresented = true
+            return false
+        }
+        usedToday += 1
+        defaults.set(usedToday, forKey: "dailyUsageCount")
+        return true
     }
 
     func start() {
-        guard transactionUpdatesTask == nil else { return }
-        transactionUpdatesTask = Task { [weak self] in
+        guard updatesTask == nil else { return }
+        updatesTask = Task { [weak self] in
             for await result in Transaction.updates {
-                guard let self else { return }
                 if case .verified(let transaction) = result {
                     await transaction.finish()
                 }
-                await self.refreshEntitlements()
+                await self?.refreshEntitlements()
             }
         }
-
-        Task {
-            await loadProducts()
-            await refreshEntitlements()
-        }
-    }
-
-    func loadProducts() async {
-        isLoading = true
-        didAttemptProductLoad = true
-        errorMessage = nil
-        do {
-            products = try await Product.products(for: Self.productIDs)
-            if products.isEmpty {
-                errorMessage = "Satın alma ürünleri App Store'dan alınamadı."
-            }
-        } catch {
-            errorMessage = "Satın alma seçenekleri yüklenemedi."
-        }
-        isLoading = false
-    }
-
-    func purchase(_ product: Product) async {
-        isLoading = true
-        errorMessage = nil
-        do {
-            let result = try await product.purchase()
-            switch result {
-            case .success(let verification):
-                guard case .verified(let transaction) = verification else {
-                    errorMessage = "Satın alma doğrulanamadı."
-                    isLoading = false
-                    return
-                }
-                await transaction.finish()
-                await refreshEntitlements()
-            case .pending:
-                errorMessage = "Satın alma onay bekliyor."
-            case .userCancelled:
-                break
-            @unknown default:
-                errorMessage = "Satın alma tamamlanamadı."
-            }
-        } catch {
-            errorMessage = "Satın alma tamamlanamadı."
-        }
-        isLoading = false
-    }
-
-    func restorePurchases() async {
-        isLoading = true
-        errorMessage = nil
-        do {
-            try await AppStore.sync()
-            await refreshEntitlements()
-        } catch {
-            errorMessage = "Satın almalar geri yüklenemedi."
-        }
-        isLoading = false
+        Task { await refreshEntitlements() }
     }
 
     func refreshEntitlements() async {
-        var activeProductIDs: Set<String> = []
+        var active = false
         for await result in Transaction.currentEntitlements {
-            guard case .verified(let transaction) = result,
-                  Self.productIDs.contains(transaction.productID),
-                  transaction.revocationDate == nil
-            else {
-                continue
+            if case .verified(let transaction) = result,
+               Plan(rawValue: transaction.productID) != nil,
+               transaction.revocationDate == nil {
+                active = true
             }
-            activeProductIDs.insert(transaction.productID)
         }
-        purchasedProductIDs = activeProductIDs
+        isPremium = active
+        if active { isPaywallPresented = false }
     }
 
-    private func sortIndex(for productID: String) -> Int {
-        switch productID {
-        case Self.weeklyProductID, Self.legacyWeeklyProductID: 0
-        case Self.monthlyProductID, Self.legacyMonthlyProductID: 1
-        case Self.lifetimeProductID, Self.legacyLifetimeProductID: 2
-        default: 99
-        }
+    private static var today: String {
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: .now)
+        return "\(day.year ?? 0)-\(day.month ?? 0)-\(day.day ?? 0)"
     }
 }
 
-struct AdSlotView: View {
-    @EnvironmentObject private var monetization: MonetizationStore
-    var placement: String
-
-    var body: some View {
-        if MonetizationStore.adsEnabled && !monetization.isPremium {
-            HStack(spacing: 10) {
-                Image(systemName: "bolt.horizontal.fill")
-                    .font(.headline.weight(.black))
-                    .foregroundStyle(BlitzTheme.accent)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Sponsorlu")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(BlitzTheme.accent)
-
-                    Text("BlitzFlash Plus ile reklamsız devam et")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(BlitzTheme.muted)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 54)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(BlitzTheme.surface.opacity(0.92))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(BlitzTheme.accent.opacity(0.22), lineWidth: 1)
-                    }
-            )
-            .accessibilityLabel("\(placement) reklam alanı")
-        }
-    }
-}
-
+/// Apple'ın hazır abonelik sayfası: fiyat, süre, otomatik yenileme metni, geri yükleme,
+/// kod kullanma ve Kullanım Koşulları / Gizlilik bağlantılarını App Review'un beklediği
+/// biçimde kendisi gösterir. Ömür boyu seçenek üst bölümde ayrı satır olarak durur.
 struct PremiumPaywallView: View {
+    @Environment(MonetizationStore.self) private var store
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var monetization: MonetizationStore
-    @State private var isRedeemCodePresented = false
-
-    private let fallbackPlans = [
-        PremiumPlanPreview(title: "Haftalık Plus", subtitle: "Kısa süreli Plus erişimi", price: "₺24,99"),
-        PremiumPlanPreview(title: "Aylık Plus", subtitle: "Düzenli çalışma için Plus erişimi", price: "₺89,99"),
-        PremiumPlanPreview(title: "Ömür Boyu Plus", subtitle: "Tek ödeme, kalıcı Plus erişimi", price: "₺199,99")
-    ]
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        BlitzLogoMark(size: 64, cornerRadius: 16)
-
+        SubscriptionStoreView(productIDs: MonetizationStore.Plan.subscriptionIDs) {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
+                    BlitzLogoMark(size: 56, cornerRadius: 14)
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("BlitzFlash Plus")
-                            .font(.system(size: 34, weight: .black, design: .rounded))
-                            .foregroundStyle(BlitzTheme.ink)
-
-                        Text("BlitzFlash'i destekle, Plus ayrıcalıklarını kullan ve modlar arasında kesintisiz ilerle.")
-                            .font(.headline)
+                            .font(.title.bold())
+                        Text(store.remainingToday == 0 ? "Bugünkü ücretsiz hakkın bitti." : "Sınırsız çalış.")
+                            .font(.subheadline)
                             .foregroundStyle(BlitzTheme.muted)
                     }
-
-                    BlitzCard(glow: BlitzTheme.accent) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label("Plus ile neler var?", systemImage: "crown.fill")
-                                .font(.headline.weight(.black))
-                                .foregroundStyle(BlitzTheme.ink)
-
-                            benefitRow("BlitzFlash'in gelişimini destekle.")
-                            benefitRow("Satın aldığın Plus erişimini tüm Apple cihazlarında geri yükle.")
-                            benefitRow("Reklamlar aktif olduğunda reklamsız ve kesintisiz devam et.")
-                            benefitRow("Yeni kelime setleri ve çalışma seçenekleri için hazır kal.")
-                        }
-                    }
-
-                    if monetization.sortedProducts.isEmpty {
-                        VStack(spacing: 10) {
-                            ForEach(fallbackPlans) { plan in
-                                unavailablePlanRow(plan)
-                            }
-                        }
-
-                        Text(monetization.isLoading ? "Satın alma seçenekleri yükleniyor..." : "Satın alma seçenekleri App Store'dan alınamadı. Paketleri satın alınabilir hale getirmek için App Store Connect ürünlerinin bu sürüme ekli ve incelemeye hazır olması gerekir.")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BlitzTheme.muted)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-
-                        Button {
-                            Task {
-                                await monetization.loadProducts()
-                                await monetization.refreshEntitlements()
-                            }
-                        } label: {
-                            Label("Tekrar Dene", systemImage: "arrow.clockwise")
-                                .font(.headline.weight(.bold))
-                                .padding(.vertical, 13)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(BlitzOutlineButton(tint: BlitzTheme.accent))
-                        .disabled(monetization.isLoading)
-                    } else {
-                        VStack(spacing: 10) {
-                            ForEach(monetization.sortedProducts, id: \.id) { product in
-                                productPlanButton(product)
-                            }
-                        }
-                    }
-
-                    if let errorMessage = monetization.errorMessage {
-                        Text(errorMessage)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BlitzTheme.danger)
-                    }
-
-                    Button {
-                        Task {
-                            await monetization.restorePurchases()
-                        }
-                    } label: {
-                        Label("Satın Almaları Geri Yükle", systemImage: "arrow.clockwise")
-                            .font(.headline.weight(.bold))
-                            .padding(.vertical, 13)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(BlitzProminentButton(tint: BlitzTheme.primary))
-
-                    Button {
-                        isRedeemCodePresented = true
-                    } label: {
-                        Label("Kod Kullan", systemImage: "gift.fill")
-                            .font(.headline.weight(.bold))
-                            .padding(.vertical, 13)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(BlitzOutlineButton(tint: BlitzTheme.accent))
-
-                    Text("Abonelikler Apple hesabın üzerinden yönetilir. Ömür boyu lisans tek seferlik satın almadır. Hediye kodları App Store Connect üzerinden oluşturulur.")
-                        .font(.caption)
-                        .foregroundStyle(BlitzTheme.muted)
                 }
-                .padding(20)
-            }
-            .blitzScreen()
-            .navigationTitle("Plus")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Kapat") {
-                        dismiss()
-                    }
-                    .foregroundStyle(BlitzTheme.primary)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    benefit("infinity", "Günlük \(MonetizationStore.freeDailyLimit) soru sınırı kalkar")
+                    benefit("globe", "İngilizce, İspanyolca ve Çekçe'nin tamamı")
+                    benefit("square.grid.2x2", "Dört modda sınırsız oyun")
+                    benefit("arrow.triangle.2.circlepath", "Tüm Apple cihazlarında geri yüklenir")
                 }
-            }
-            .task {
-                await monetization.loadProducts()
-                await monetization.refreshEntitlements()
-            }
-            .offerCodeRedemption(isPresented: $isRedeemCodePresented) { result in
-                Task {
-                    await monetization.refreshEntitlements()
-                    if case .failure = result {
-                        monetization.errorMessage = "Kod kullanma ekranı açılamadı."
-                    }
+
+                ProductView(id: MonetizationStore.Plan.lifetime.rawValue) {
+                    Image(systemName: "crown.fill")
+                        .foregroundStyle(BlitzTheme.accent)
                 }
+                .productViewStyle(.compact)
+                .padding(14)
+                .background(BlitzTheme.surface, in: .rect(cornerRadius: 16))
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .frame(maxWidth: 520)
         }
-    }
-
-    private func title(for product: Product) -> String {
-        switch product.id {
-        case MonetizationStore.weeklyProductID, MonetizationStore.legacyWeeklyProductID: "Haftalık Plus"
-        case MonetizationStore.monthlyProductID, MonetizationStore.legacyMonthlyProductID: "Aylık Plus"
-        case MonetizationStore.lifetimeProductID, MonetizationStore.legacyLifetimeProductID: "Ömür Boyu Plus"
-        default: product.displayName
+        .subscriptionStoreControlStyle(.prominentPicker)
+        .subscriptionStoreButtonLabel(.multiline)
+        .storeButton(.visible, for: .restorePurchases, .redeemCode)
+        .subscriptionStorePolicyDestination(url: MonetizationStore.termsURL, for: .termsOfService)
+        .subscriptionStorePolicyDestination(url: MonetizationStore.privacyURL, for: .privacyPolicy)
+        .onInAppPurchaseCompletion { _, _ in
+            await store.refreshEntitlements()
+            if store.isPremium { dismiss() }
         }
+        .tint(BlitzTheme.primary)
+        .background(BlitzTheme.background)
     }
 
-    private func subtitle(for product: Product) -> String {
-        switch product.id {
-        case MonetizationStore.weeklyProductID, MonetizationStore.legacyWeeklyProductID: "Kısa süreli Plus erişimi"
-        case MonetizationStore.monthlyProductID, MonetizationStore.legacyMonthlyProductID: "Düzenli çalışma için Plus erişimi"
-        case MonetizationStore.lifetimeProductID, MonetizationStore.legacyLifetimeProductID: "Tek ödeme, kalıcı Plus erişimi"
-        default: product.description
+    private func benefit(_ icon: String, _ text: String) -> some View {
+        Label {
+            Text(text).foregroundStyle(BlitzTheme.ink)
+        } icon: {
+            Image(systemName: icon).foregroundStyle(BlitzTheme.primary)
         }
+        .font(.subheadline)
     }
-
-    private func benefitRow(_ text: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.subheadline.weight(.black))
-                .foregroundStyle(BlitzTheme.success)
-                .padding(.top, 1)
-
-            Text(text)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(BlitzTheme.muted)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func productPlanButton(_ product: Product) -> some View {
-        Button {
-            Task {
-                await monetization.purchase(product)
-            }
-        } label: {
-            planRowContent(
-                title: title(for: product),
-                subtitle: subtitle(for: product),
-                price: product.displayPrice,
-                trailingSystemImage: "chevron.right"
-            )
-        }
-        .buttonStyle(.plain)
-        .background(planRowBackground(stroke: BlitzTheme.accent.opacity(0.2)))
-        .disabled(monetization.isLoading)
-        .accessibilityHint("Satın alma ekranını açar")
-    }
-
-    private func unavailablePlanRow(_ plan: PremiumPlanPreview) -> some View {
-        planRowContent(
-            title: plan.title,
-            subtitle: plan.subtitle,
-            price: plan.price,
-            trailingSystemImage: "lock.fill"
-        )
-        .opacity(0.72)
-        .background(planRowBackground(stroke: BlitzTheme.dim.opacity(0.24)))
-        .accessibilityHint("Bu seçenek App Store bağlantısı kurulunca satın alınabilir")
-    }
-
-    private func planRowContent(title: String, subtitle: String, price: String, trailingSystemImage: String) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline.weight(.black))
-                    .foregroundStyle(BlitzTheme.ink)
-
-                Text(subtitle)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(BlitzTheme.muted)
-            }
-
-            Spacer()
-
-            Text(price)
-                .font(.headline.weight(.black))
-                .foregroundStyle(BlitzTheme.accent)
-
-            Image(systemName: trailingSystemImage)
-                .font(.subheadline.weight(.black))
-                .foregroundStyle(BlitzTheme.accent)
-                .frame(width: 18)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity)
-    }
-
-    private func planRowBackground(stroke: Color) -> some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(BlitzTheme.cardGradient)
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(stroke, lineWidth: 1)
-            }
-    }
-}
-
-private struct PremiumPlanPreview: Identifiable {
-    let id = UUID()
-    let title: String
-    let subtitle: String
-    let price: String
 }

@@ -9,12 +9,13 @@ import SwiftUI
 
 @main
 struct BlitzFlashApp: App {
-    @StateObject private var monetization = MonetizationStore()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var monetization = MonetizationStore()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(monetization)
+                .environment(monetization)
                 .task {
                     monetization.start()
                 }

@@ -4,6 +4,8 @@ struct WordHuntView: View {
     var words: [VocabularyWord]
     var learningLanguage: LearningLanguage = .english
 
+    @Environment(MonetizationStore.self) private var monetization
+    @Environment(\.blitzLayout) private var layout
     @AppStorage("wordHuntBestScore") private var bestScore = 0
     @AppStorage("wordHuntHasBestScore") private var hasBestScore = false
 
@@ -15,356 +17,291 @@ struct WordHuntView: View {
     @State private var roundWords: [VocabularyWord] = []
     @State private var prompts: [UUID: WordHuntPrompt] = [:]
     @State private var score = 0
-    @State private var feedback: String?
+    @State private var feedback: Feedback?
     @State private var isFinished = false
     @State private var finishedAt = Date()
     @State private var isNewBest = false
 
-    private var activeWords: [VocabularyWord] {
-        roundWords.isEmpty ? Array(words.prefix(15)) : roundWords
-    }
+    private static let roundSize = 15
+    private static let maxAttempts = 3
 
     var body: some View {
         Group {
             if isFinished {
                 resultView
+            } else if layout.isWide {
+                // Duo iç ekranı: solda ızgara, sağda cevap paneli; sayfa açılmaz.
+                AdaptiveSplit {
+                    ScrollView { grid }
+                        .scrollIndicators(.hidden)
+                } secondary: {
+                    statsRow
+                    if let selectedWord {
+                        answerPanel(for: selectedWord)
+                    } else {
+                        placeholderPanel
+                    }
+                    Spacer(minLength: 0)
+                    finishButton
+                }
+                .padding(20)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
-                            StatPill(title: "Bitti", value: solved.count + failed.count, color: BlitzTheme.success)
-                            StatPill(title: "Toplam", value: activeWords.count, color: BlitzTheme.muted)
-                        }
-
-                        AdSlotView(placement: "Kelime Avı")
-
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                            ForEach(activeWords) { word in
-                                let prompt = prompt(for: word)
-
-                                Button {
-                                    selectedWord = word
-                                    answer = ""
-                                    feedback = nil
-                                } label: {
-                                    VStack(spacing: 8) {
-                                        Text(prompt.questionText(for: word, language: learningLanguage))
-                                            .font(.subheadline.weight(.bold))
-                                            .multilineTextAlignment(.center)
-                                            .foregroundStyle(BlitzTheme.ink)
-                                            .lineLimit(2)
-
-                                        if isCompleted(word) {
-                                            Text(prompt.answerText(for: word, language: learningLanguage))
-                                                .font(.caption.weight(.semibold))
-                                                .multilineTextAlignment(.center)
-                                                .foregroundStyle(BlitzTheme.ink.opacity(0.86))
-                                                .lineLimit(2)
-                                                .minimumScaleFactor(0.78)
-                                        }
-
-                                        Text(statusText(for: word, prompt: prompt))
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(statusColor(for: word, prompt: prompt))
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: isCompleted(word) ? 112 : 86)
-                                    .padding(8)
-                                    .background(tileBackground(for: word))
-                                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                    .overlay {
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .stroke(tileBorder(for: word), lineWidth: 1)
-                                    }
-                                    .shadow(color: tileBorder(for: word).opacity(0.18), radius: 10, x: 0, y: 0)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(solved.contains(word.id) || failed.contains(word.id))
-                            }
-                        }
-
-                        Button {
-                            finishGame()
-                        } label: {
-                            Label("Bitir", systemImage: "flag.fill")
-                                .font(.headline.weight(.bold))
-                                .padding(.vertical, 13)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(BlitzProminentButton(tint: BlitzTheme.accent, darkText: true))
+                    VStack(spacing: 16) {
+                        statsRow
+                        grid
+                        finishButton
                     }
-                    .padding(20)
+                    .padding(layout.isShort ? 16 : 20)
                 }
                 .scrollContentBackground(.hidden)
+                .sheet(item: $selectedWord) { word in
+                    ScrollView {
+                        answerPanel(for: word).padding(20)
+                    }
+                    .blitzScreen()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                }
             }
         }
         .blitzScreen()
-        .navigationTitle("Kelime Avı")
+        .navigationTitle(BlitzMode.hunt.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sensoryFeedback(.success, trigger: solved.count)
+        .sensoryFeedback(.error, trigger: failed.count)
         .onAppear {
-            preparePromptsIfNeeded()
-        }
-        .sheet(item: $selectedWord) { word in
-            huntSheet(for: word)
+            if prompts.isEmpty { newRound() }
         }
     }
 
-    private func huntSheet(for word: VocabularyWord) -> some View {
+    private var statsRow: some View {
+        HStack {
+            StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
+            StatPill(title: "Bitti", value: solved.count + failed.count, color: BlitzTheme.success)
+            StatPill(title: "Toplam", value: roundWords.count, color: BlitzTheme.muted)
+        }
+    }
+
+    private var finishButton: some View {
+        Button(action: finishGame) {
+            BlitzButtonLabel(title: "Bitir", icon: "flag.fill")
+        }
+        .blitzButton(tint: BlitzTheme.accent)
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+            ForEach(roundWords) { word in
+                tile(for: word)
+            }
+        }
+    }
+
+    private func tile(for word: VocabularyWord) -> some View {
+        let prompt = prompt(for: word)
+        let tint = tileTint(for: word)
+        let isSelected = selectedWord?.id == word.id
+
+        return Button {
+            selectedWord = word
+            answer = ""
+            feedback = nil
+        } label: {
+            VStack(spacing: 8) {
+                Text(prompt.questionText(for: word, language: learningLanguage))
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(BlitzTheme.ink)
+                    .lineLimit(2)
+
+                if isCompleted(word) {
+                    Text(prompt.answerText(for: word, language: learningLanguage))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BlitzTheme.ink.opacity(0.86))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+                }
+
+                Text(statusText(for: word, prompt: prompt))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(tint ?? BlitzTheme.muted)
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: isCompleted(word) ? 112 : (layout.isShort ? 72 : 86))
+            .padding(8)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(tint?.opacity(0.14) ?? BlitzTheme.surface)
+                    .stroke(isSelected ? BlitzTheme.primary : (tint?.opacity(0.5) ?? .clear), lineWidth: isSelected ? 2 : 1.5)
+            }
+            .shadow(color: BlitzTheme.cardShadow, radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .disabled(isCompleted(word))
+    }
+
+    private var placeholderPanel: some View {
+        BlitzCard {
+            VStack(spacing: 10) {
+                Image(systemName: "hand.tap.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(BlitzTheme.accent)
+                Text("Soldan bir kart seç")
+                    .font(.headline)
+                    .foregroundStyle(BlitzTheme.ink)
+                if let feedback {
+                    Text(feedback.text)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: 180)
+        }
+    }
+
+    private func answerPanel(for word: VocabularyWord) -> some View {
         let prompt = prompt(for: word)
 
-        return NavigationStack {
-            VStack(spacing: 18) {
-                BlitzCard(glow: BlitzTheme.accent) {
-                    VStack(spacing: 14) {
-                        Text(prompt.questionText(for: word, language: learningLanguage))
-                            .font(.system(size: 42, weight: .black, design: .rounded))
-                            .minimumScaleFactor(0.58)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(BlitzTheme.ink)
-                            .shadow(color: BlitzTheme.accent.opacity(0.22), radius: 18, x: 0, y: 0)
+        return VStack(spacing: 16) {
+            BlitzCard {
+                VStack(spacing: 14) {
+                    Text(prompt.questionText(for: word, language: learningLanguage))
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .minimumScaleFactor(0.58)
+                        .foregroundStyle(BlitzTheme.ink)
 
-                        Text(prompt.sentenceText(for: word, language: learningLanguage))
+                    if let sentence = prompt.sentenceText(for: word, language: learningLanguage) {
+                        Text(sentence)
                             .font(.body)
-                            .multilineTextAlignment(.center)
                             .foregroundStyle(BlitzTheme.muted)
-
-                        Text("Hak: \(3 - attempts[word.id, default: 0])")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(BlitzTheme.accent)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-
-                TextField(prompt.placeholder(for: learningLanguage), text: $answer)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onSubmit { submit(word) }
-                    .padding(14)
-                    .foregroundStyle(BlitzTheme.ink)
-                    .background(BlitzTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(BlitzTheme.accent.opacity(0.25), lineWidth: 1)
                     }
 
-                Button {
-                    submit(word)
-                } label: {
-                    BlitzCheckButtonLabel(tint: BlitzTheme.accent)
+                    Text("Hak: \(Self.maxAttempts - attempts[word.id, default: 0])")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BlitzTheme.accent)
                 }
-                .buttonStyle(BlitzCheckButtonStyle(tint: BlitzTheme.accent))
-
-                if let feedback {
-                    Text(feedback)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(feedback.hasPrefix("Doğru") ? BlitzTheme.success : BlitzTheme.danger)
-                }
-
-                Spacer()
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
             }
-            .padding(20)
-            .blitzScreen()
-            .navigationTitle("Çeviri")
-            .navigationBarTitleDisplayMode(.inline)
+
+            TextField(prompt.placeholder(for: learningLanguage), text: $answer)
+                .blitzAnswerField()
+                .onSubmit { submit(word) }
+
+            Button { submit(word) } label: {
+                BlitzButtonLabel(title: "Kontrol Et", icon: "arrow.right")
+            }
+            .blitzButton()
+            .disabled(answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            if let feedback {
+                Text(feedback.text)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
+            }
         }
     }
 
     private func submit(_ word: VocabularyWord) {
-        let currentAttempts = attempts[word.id, default: 0]
+        guard !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, monetization.spend() else { return }
+        let wrongSoFar = attempts[word.id, default: 0]
         let prompt = prompt(for: word)
+        let solution = prompt.answerText(for: word, language: learningLanguage)
+        let given = answer
+        answer = ""
 
-        if prompt.matches(answer, word: word, language: learningLanguage) {
+        if prompt.matches(given, word: word, language: learningLanguage) {
             solved.insert(word.id)
-            score += scoreForCorrectAnswer(afterWrongAttempts: currentAttempts)
-            feedback = "Doğru: \(prompt.answerText(for: word, language: learningLanguage))"
+            score += [5, 3, 1][min(wrongSoFar, 2)]
+            feedback = Feedback(text: "Doğru: \(solution)", isCorrect: true)
             selectedWord = nil
             return
         }
 
-        attempts[word.id] = currentAttempts + 1
-        if currentAttempts + 1 >= 3 {
+        attempts[word.id] = wrongSoFar + 1
+        if wrongSoFar + 1 >= Self.maxAttempts {
             failed.insert(word.id)
             score -= 3
-            feedback = "Hak bitti: \(prompt.answerText(for: word, language: learningLanguage))"
+            feedback = Feedback(text: "Hak bitti: \(solution)", isCorrect: false)
             selectedWord = nil
         } else {
-            feedback = "Yanlış. Kalan hak: \(3 - (currentAttempts + 1))"
-        }
-        answer = ""
-    }
-
-    private func scoreForCorrectAnswer(afterWrongAttempts wrongAttempts: Int) -> Int {
-        switch wrongAttempts {
-        case 0: 5
-        case 1: 3
-        default: 1
+            feedback = Feedback(text: "Yanlış. Kalan hak: \(Self.maxAttempts - wrongSoFar - 1)", isCorrect: false)
         }
     }
 
     private func finishGame() {
         finishedAt = Date()
-        if !hasBestScore || score > bestScore {
+        isNewBest = !hasBestScore || score > bestScore
+        if isNewBest {
             bestScore = score
             hasBestScore = true
-            isNewBest = true
-        } else {
-            isNewBest = false
         }
         isFinished = true
         selectedWord = nil
     }
 
-    private func restartGame() {
+    private func newRound() {
         selectedWord = nil
         answer = ""
         solved = []
         failed = []
         attempts = [:]
-        roundWords = randomRoundWords()
-        prompts = randomPrompts(for: roundWords)
+        roundWords = Array(words.shuffled().prefix(Self.roundSize))
+        let directions = roundWords.indices.map { $0.isMultiple(of: 2) ? WordHuntPrompt.targetToTurkish : .turkishToTarget }.shuffled()
+        prompts = Dictionary(uniqueKeysWithValues: zip(roundWords.map(\.id), directions))
         score = 0
         feedback = nil
         isFinished = false
-        finishedAt = Date()
-        isNewBest = false
     }
 
     private var resultView: some View {
         VStack(spacing: 18) {
-            BlitzCard(glow: BlitzTheme.accent) {
-                VStack(spacing: 14) {
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 44, weight: .black))
-                        .foregroundStyle(BlitzTheme.accent)
-
-                    Text("Kelime Avı Sonucu")
-                        .font(.title2.weight(.black))
-                        .foregroundStyle(BlitzTheme.ink)
-
-                    Text("\(formattedDate(finishedAt)) • \(formattedTime(finishedAt))")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BlitzTheme.muted)
-
-                    Text("\(score) puan")
-                        .font(.system(size: 48, weight: .black, design: .rounded))
-                        .foregroundStyle(score >= 0 ? BlitzTheme.success : BlitzTheme.danger)
-                        .shadow(color: (score >= 0 ? BlitzTheme.success : BlitzTheme.danger).opacity(0.24), radius: 18, x: 0, y: 0)
-
-                    Text(isNewBest ? "Yeni rekor" : "Rekorun: \(bestScore) puan")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(BlitzTheme.primary)
-                }
-                .frame(maxWidth: .infinity)
-            }
+            ResultCard(
+                title: "Kelime Avı Sonucu",
+                score: score,
+                detail: isNewBest ? "Yeni rekor" : "Rekorun: \(bestScore) puan",
+                finishedAt: finishedAt,
+                onReplay: newRound
+            )
 
             HStack(spacing: 10) {
                 StatPill(title: "Doğru", value: solved.count, color: BlitzTheme.success)
                 StatPill(title: "Kaçan", value: failed.count, color: BlitzTheme.danger)
-                StatPill(title: "Toplam", value: activeWords.count, color: BlitzTheme.muted)
+                StatPill(title: "Toplam", value: roundWords.count, color: BlitzTheme.muted)
             }
-
-            Button {
-                restartGame()
-            } label: {
-                Label("Tekrar Oyna", systemImage: "arrow.clockwise")
-                    .font(.headline.weight(.bold))
-                    .padding(.vertical, 13)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(BlitzProminentButton(tint: BlitzTheme.secondary))
 
             Spacer()
         }
+        .frame(maxWidth: 520)
         .padding(20)
-    }
-
-    private func formattedDate(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month(.wide).year())
-    }
-
-    private func formattedTime(_ date: Date) -> String {
-        date.formatted(.dateTime.hour().minute())
-    }
-
-    private func preparePromptsIfNeeded() {
-        guard prompts.isEmpty else { return }
-        roundWords = randomRoundWords()
-        prompts = randomPrompts(for: roundWords)
-    }
-
-    private func randomRoundWords() -> [VocabularyWord] {
-        Array(words.shuffled().prefix(15))
-    }
-
-    private func randomPrompts(for roundWords: [VocabularyWord]) -> [UUID: WordHuntPrompt] {
-        let mixedPrompts = roundWords.indices
-            .map { $0.isMultiple(of: 2) ? WordHuntPrompt.targetToTurkish : .turkishToTarget }
-            .shuffled()
-
-        return Dictionary(uniqueKeysWithValues: zip(roundWords.map(\.id), mixedPrompts))
     }
 
     private func prompt(for word: VocabularyWord) -> WordHuntPrompt {
         prompts[word.id, default: .targetToTurkish]
     }
 
-    private func statusText(for word: VocabularyWord, prompt: WordHuntPrompt) -> String {
-        if solved.contains(word.id) {
-            switch attempts[word.id, default: 0] {
-            case 0: return "İlk hak"
-            case 1: return "2. hak"
-            default: return "3. hak"
-            }
-        }
-        if failed.contains(word.id) { return "Bilemedin" }
-        return prompt.label(for: learningLanguage)
-    }
-
-    private func statusColor(for word: VocabularyWord, prompt: WordHuntPrompt) -> Color {
-        if solved.contains(word.id) {
-            return attempts[word.id, default: 0] == 0 ? BlitzTheme.success : BlitzTheme.accent
-        }
-        if failed.contains(word.id) { return BlitzTheme.danger }
-        return BlitzTheme.muted
-    }
-
     private func isCompleted(_ word: VocabularyWord) -> Bool {
         solved.contains(word.id) || failed.contains(word.id)
     }
 
-    private func tileBackground(for word: VocabularyWord) -> AnyShapeStyle {
-        if solved.contains(word.id), attempts[word.id, default: 0] == 0 {
-            return AnyShapeStyle(LinearGradient(
-                colors: [BlitzTheme.success.opacity(0.28), BlitzTheme.surfaceLight.opacity(0.92)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ))
-        }
-        if solved.contains(word.id) {
-            return AnyShapeStyle(LinearGradient(
-                colors: [BlitzTheme.success.opacity(0.2), BlitzTheme.accent.opacity(0.3), BlitzTheme.surfaceLight.opacity(0.92)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ))
-        }
-        if failed.contains(word.id) {
-            return AnyShapeStyle(LinearGradient(
-                colors: [BlitzTheme.danger.opacity(0.28), BlitzTheme.surfaceLight.opacity(0.9)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ))
-        }
-        return AnyShapeStyle(BlitzTheme.surface)
+    private func statusText(for word: VocabularyWord, prompt: WordHuntPrompt) -> String {
+        if solved.contains(word.id) { return ["İlk hak", "2. hak", "3. hak"][min(attempts[word.id, default: 0], 2)] }
+        if failed.contains(word.id) { return "Bilemedin" }
+        return prompt.label(for: learningLanguage)
     }
 
-    private func tileBorder(for word: VocabularyWord) -> Color {
-        if solved.contains(word.id), attempts[word.id, default: 0] == 0 { return BlitzTheme.success.opacity(0.55) }
-        if solved.contains(word.id) { return BlitzTheme.accent.opacity(0.58) }
-        if failed.contains(word.id) { return BlitzTheme.danger.opacity(0.58) }
-        return BlitzTheme.primary.opacity(0.12)
+    /// Çözülen/kaçan kartın rengi; açık kartlar için `nil`.
+    private func tileTint(for word: VocabularyWord) -> Color? {
+        if solved.contains(word.id) { return attempts[word.id, default: 0] == 0 ? BlitzTheme.success : BlitzTheme.accent }
+        if failed.contains(word.id) { return BlitzTheme.danger }
+        return nil
     }
+}
+
+private struct Feedback {
+    var text: String
+    var isCorrect: Bool
 }
 
 private enum WordHuntPrompt {
@@ -392,7 +329,7 @@ private enum WordHuntPrompt {
         }
     }
 
-    func sentenceText(for word: VocabularyWord, language: LearningLanguage) -> String {
+    func sentenceText(for word: VocabularyWord, language: LearningLanguage) -> String? {
         switch self {
         case .targetToTurkish: word.targetSentence(for: language)
         case .turkishToTarget: word.turkishSentence

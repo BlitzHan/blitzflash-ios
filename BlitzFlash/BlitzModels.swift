@@ -7,66 +7,87 @@ struct VocabularyWord: Identifiable, Hashable {
     var englishSentence: String
     var turkishSentence: String
 
-    var acceptedAnswers: [String] {
-        turkish
-            .replacingOccurrences(of: "(", with: "/")
-            .replacingOccurrences(of: ")", with: "/")
-            .components(separatedBy: CharacterSet(charactersIn: "/,;"))
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).foldedForAnswer }
+    /// "Hangi / Hangisi (soru)" → ["hangi", "hangisi", "soru"]
+    private static func answerOptions(_ text: String) -> [String] {
+        text.components(separatedBy: CharacterSet(charactersIn: "/,;()"))
+            .map(\.foldedForAnswer)
             .filter { !$0.isEmpty }
     }
 
+    /// Yazarak Tahmin için hoşgörülü eşleşme: tam eşleşme ya da en az 3 harflik parça.
+    /// (Eskiden tek harf bile "içeriyor" sayılıp doğru kabul ediliyordu.)
     func matches(_ answer: String) -> Bool {
         let normalized = answer.foldedForAnswer
         guard !normalized.isEmpty else { return false }
-        return acceptedAnswers.contains { option in
-            option == normalized || option.contains(normalized) || normalized.contains(option)
+        return Self.answerOptions(turkish).contains { option in
+            option == normalized
+                || (normalized.count >= 3 && (option.contains(normalized) || normalized.contains(option)))
         }
-    }
-
-    func targetTerm(for language: LearningLanguage) -> String {
-        switch language {
-        case .english:
-            english
-        case .spanish:
-            SpanishVocabularyData.entry(for: self)?.term ?? english
-        }
-    }
-
-    func targetSentence(for language: LearningLanguage) -> String {
-        switch language {
-        case .english:
-            englishSentence
-        case .spanish:
-            SpanishVocabularyData.entry(for: self)?.sentence ?? englishSentence
-        }
-    }
-
-    func targetAcceptedAnswers(for language: LearningLanguage) -> [String] {
-        targetTerm(for: language)
-            .replacingOccurrences(of: "(", with: "/")
-            .replacingOccurrences(of: ")", with: "/")
-            .components(separatedBy: CharacterSet(charactersIn: "/,;"))
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).foldedForAnswer }
-            .filter { !$0.isEmpty }
-    }
-
-    func strictlyMatchesTarget(_ answer: String, language: LearningLanguage) -> Bool {
-        let normalized = answer.foldedForAnswer
-        guard !normalized.isEmpty else { return false }
-        return targetAcceptedAnswers(for: language).contains(normalized)
     }
 
     func strictlyMatchesTurkish(_ answer: String) -> Bool {
         let normalized = answer.foldedForAnswer
-        guard !normalized.isEmpty else { return false }
-        return acceptedAnswers.contains(normalized) || turkish.foldedForAnswer == normalized
+        return !normalized.isEmpty
+            && (Self.answerOptions(turkish).contains(normalized) || turkish.foldedForAnswer == normalized)
+    }
+
+    func strictlyMatchesTarget(_ answer: String, language: LearningLanguage) -> Bool {
+        let normalized = answer.foldedForAnswer
+        return !normalized.isEmpty && Self.answerOptions(targetTerm(for: language)).contains(normalized)
+    }
+
+    func targetTerm(for language: LearningLanguage) -> String {
+        switch language {
+        case .english: english
+        case .spanish: SpanishVocabularyData.entry(for: self)?.term ?? english
+        case .czech: CzechVocabularyData.entry(for: self)?.term ?? english
+        }
+    }
+
+    /// Hedef dildeki örnek cümle. İspanyolca/Çekçe verinin bir kısmı yer tutucu
+    /// cümle ("La palabra X aparece...") içerdiği için onlar hiç gösterilmez.
+    func targetSentence(for language: LearningLanguage) -> String? {
+        switch language {
+        case .english:
+            return englishSentence
+        case .spanish:
+            guard let sentence = SpanishVocabularyData.entry(for: self)?.sentence,
+                  !sentence.hasPrefix("La palabra ") else { return nil }
+            return sentence
+        case .czech:
+            guard let sentence = CzechVocabularyData.entry(for: self)?.sentence,
+                  !sentence.hasPrefix("Slovo ") else { return nil }
+            return sentence
+        }
+    }
+
+    func targetPronunciation(for language: LearningLanguage) -> String? {
+        switch language {
+        case .english: EnglishPronunciationData.pronunciation(for: english)
+        case .czech: CzechVocabularyData.entry(for: self)?.pronunciation
+        case .spanish: nil
+        }
+    }
+}
+
+/// Son gösterilen kelimeleri tekrar etmeden rastgele seçer.
+struct WordPicker {
+    private var recentIDs: [UUID] = []
+    private let memory = 40
+
+    mutating func next(from words: [VocabularyWord]) -> VocabularyWord? {
+        let pool = words.filter { !recentIDs.contains($0.id) }
+        guard let word = (pool.isEmpty ? words : pool).randomElement() else { return nil }
+        recentIDs.append(word.id)
+        if recentIDs.count > memory { recentIDs.removeFirst() }
+        return word
     }
 }
 
 enum LearningLanguage: String, CaseIterable, Identifiable {
     case english
     case spanish
+    case czech
 
     var id: String { rawValue }
 
@@ -74,6 +95,7 @@ enum LearningLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .english: "İngilizce"
         case .spanish: "İspanyolca"
+        case .czech: "Çekçe"
         }
     }
 
@@ -81,6 +103,7 @@ enum LearningLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .english: "English"
         case .spanish: "Español"
+        case .czech: "Čeština"
         }
     }
 
@@ -88,13 +111,16 @@ enum LearningLanguage: String, CaseIterable, Identifiable {
         switch self {
         case .english: "EN"
         case .spanish: "ES"
+        case .czech: "CZ"
         }
     }
 
-    var cardLabel: String {
+    /// Bu dilde karşılığı olan kelimeler (eksik çeviri İngilizce görünmesin).
+    var words: [VocabularyWord] {
         switch self {
-        case .english: "English"
-        case .spanish: "Español"
+        case .english: VocabularyData.words
+        case .spanish: VocabularyData.words.filter { SpanishVocabularyData.entry(for: $0) != nil }
+        case .czech: VocabularyData.words.filter { CzechVocabularyData.entry(for: $0) != nil }
         }
     }
 }

@@ -1,325 +1,265 @@
 import SwiftUI
 
 struct HomeView: View {
-    private let words = VocabularyData.words
-    @EnvironmentObject private var monetization: MonetizationStore
-    @AppStorage("learningLanguage") private var learningLanguageRaw = LearningLanguage.english.rawValue
-    @State private var isShowingPaywall = false
-    @State private var isShowingSettings = false
-
-    private var learningLanguage: LearningLanguage {
-        LearningLanguage(rawValue: learningLanguageRaw) ?? .english
-    }
+    @Environment(MonetizationStore.self) private var monetization
+    @Environment(\.blitzLayout) private var layout
+    @AppStorage("learningLanguage") private var learningLanguage = LearningLanguage.english
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    BrandHeader()
-
-                    VStack(spacing: 12) {
-                        ForEach(BlitzMode.allCases) { mode in
-                            NavigationLink {
-                                destination(for: mode)
-                            } label: {
-                                ModeCard(mode: mode)
-                            }
-                            .buttonStyle(.plain)
+            Group {
+                if layout.isWide {
+                    // Duo iç ekranı: solda marka, dil ve günlük hak; sağda dört mod ekranı doldurur.
+                    AdaptiveSplit(spacing: 20) {
+                        BrandHeader(compact: false)
+                        Picker("Dil", selection: $learningLanguage) {
+                            ForEach(LearningLanguage.allCases) { Text($0.title).tag($0) }
                         }
+                        .pickerStyle(.segmented)
+                        DailyAllowanceCard()
+                        WordOfTheDayCard(language: learningLanguage)
+                        Spacer(minLength: 0)
+                    } secondary: {
+                        modeGrid(fillsHeight: true)
                     }
-
-                    AdSlotView(placement: "Ana sayfa")
-
-                    VStack(spacing: 12) {
-                        languageStatusCard
-                        premiumStatusCard
+                    .padding(24)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: layout.isShort ? 14 : 22) {
+                            BrandHeader(compact: layout.isShort)
+                            DailyAllowanceCard()
+                            if layout.isShort {
+                                // Duo dış ekranı: dört mod kaydırmadan sığsın diye 2×2.
+                                modeGrid(fillsHeight: false)
+                            } else {
+                                VStack(spacing: 12) {
+                                    ForEach(BlitzMode.allCases) { mode in
+                                        NavigationLink(value: mode) { ModeRow(mode: mode) }
+                                            .buttonStyle(.plain)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, layout.isShort ? 16 : 20)
+                        .padding(.vertical, layout.isShort ? 8 : 18)
                     }
+                    .scrollContentBackground(.hidden)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 18)
-                .padding(.bottom, 28)
             }
-            .scrollContentBackground(.hidden)
             .blitzScreen()
-            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        isShowingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(BlitzTheme.primary)
+                if !layout.isWide {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Menu {
+                            Picker("Çalışılan dil", selection: $learningLanguage) {
+                                ForEach(LearningLanguage.allCases) { language in
+                                    Text("\(language.title) (\(language.nativeTitle))").tag(language)
+                                }
+                            }
+                        } label: {
+                            Label(learningLanguage.shortCode, systemImage: "globe")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .accessibilityLabel("Çalışılan dil: \(learningLanguage.title)")
                     }
-                    .accessibilityLabel("Ayarlar")
                 }
-
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isShowingPaywall = true
-                    } label: {
-                        Image(systemName: monetization.isPremium ? "crown.fill" : "crown")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(BlitzTheme.accent)
+                    Button("BlitzFlash Plus", systemImage: monetization.isPremium ? "crown.fill" : "crown") {
+                        monetization.isPaywallPresented = true
                     }
-                    .accessibilityLabel("BlitzFlash Plus")
+                    .tint(BlitzTheme.accent)
                 }
             }
-            .sheet(isPresented: $isShowingPaywall) {
-                PremiumPaywallView()
-            }
-            .sheet(isPresented: $isShowingSettings) {
-                SettingsView()
+            .navigationDestination(for: BlitzMode.self) { mode in
+                destination(for: mode)
             }
         }
     }
 
-    private var languageStatusCard: some View {
-        Button {
-            isShowingSettings = true
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(BlitzTheme.primary.opacity(0.18))
-                        .frame(width: 42, height: 42)
-
-                    Text(learningLanguage.shortCode)
-                        .font(.headline.weight(.black))
-                        .foregroundStyle(BlitzTheme.primaryLight)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Öğrenilen dil")
-                        .font(.headline.weight(.black))
-                        .foregroundStyle(BlitzTheme.ink)
-
-                    Text("\(learningLanguage.title) - Türkçe")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BlitzTheme.muted)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.black))
-                    .foregroundStyle(BlitzTheme.primary)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(BlitzTheme.cardGradient)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(BlitzTheme.primary.opacity(0.2), lineWidth: 1)
+    private func modeGrid(fillsHeight: Bool) -> some View {
+        VStack(spacing: 12) {
+            ForEach([[BlitzMode.free, .typing], [BlitzMode.sentence, .hunt]], id: \.self) { row in
+                HStack(spacing: 12) {
+                    ForEach(row) { mode in
+                        NavigationLink(value: mode) { ModeTile(mode: mode, isLarge: fillsHeight) }
+                            .buttonStyle(.plain)
                     }
-            )
+                }
+            }
         }
-        .buttonStyle(.plain)
     }
 
-    private var premiumStatusCard: some View {
-        Button {
-            isShowingPaywall = true
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(BlitzTheme.accent.opacity(0.18))
-                        .frame(width: 42, height: 42)
-
-                    Image(systemName: monetization.isPremium ? "crown.fill" : "crown")
-                        .font(.headline.weight(.black))
-                        .foregroundStyle(BlitzTheme.accent)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(monetization.isPremium ? "Plus aktif" : "BlitzFlash Plus")
-                        .font(.headline.weight(.black))
-                        .foregroundStyle(BlitzTheme.ink)
-
-                    Text(monetization.isPremium ? "Reklamsız kullanım açık." : "Reklamsız kullanım için yükselt.")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BlitzTheme.muted)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.black))
-                    .foregroundStyle(BlitzTheme.accent)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(BlitzTheme.cardGradient)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(BlitzTheme.accent.opacity(0.2), lineWidth: 1)
-                    }
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
+    /// Hedef ekran yalnızca açılınca oluşturulur (eskiden ana sayfa her çizimde dört modu
+    /// ve 889 kelimelik karıştırmayı baştan hazırlıyordu).
     @ViewBuilder
     private func destination(for mode: BlitzMode) -> some View {
+        let words = learningLanguage.words.shuffled()
         switch mode {
-        case .free:
-            FreeStudyView(words: words.shuffled(), learningLanguage: learningLanguage)
-        case .typing:
-            TypingModeView(words: words.shuffled(), learningLanguage: learningLanguage)
-        case .sentence:
-            SentenceModeView(words: words.shuffled(), learningLanguage: learningLanguage)
-        case .hunt:
-            WordHuntView(words: words, learningLanguage: learningLanguage)
-        }
-    }
-}
-
-private struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
-    @AppStorage("learningLanguage") private var learningLanguageRaw = LearningLanguage.english.rawValue
-
-    private var selectedLanguage: LearningLanguage {
-        LearningLanguage(rawValue: learningLanguageRaw) ?? .english
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Ayarlar")
-                            .font(.system(size: 34, weight: .black, design: .rounded))
-                            .foregroundStyle(BlitzTheme.ink)
-
-                        Text("BlitzFlash'te hangi dili Türkçe ile çalışacağını seç.")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BlitzTheme.muted)
-                    }
-
-                    VStack(spacing: 12) {
-                        ForEach(LearningLanguage.allCases) { language in
-                            Button {
-                                learningLanguageRaw = language.rawValue
-                            } label: {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(language == selectedLanguage ? BlitzTheme.primary.opacity(0.24) : BlitzTheme.surfaceLight)
-                                            .frame(width: 48, height: 48)
-
-                                        Text(language.shortCode)
-                                            .font(.headline.weight(.black))
-                                            .foregroundStyle(language == selectedLanguage ? BlitzTheme.primaryLight : BlitzTheme.muted)
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(language.title)
-                                            .font(.headline.weight(.black))
-                                            .foregroundStyle(BlitzTheme.ink)
-
-                                        Text("\(language.nativeTitle) - Türkçe kelime çalışması")
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(BlitzTheme.muted)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: language == selectedLanguage ? "checkmark.circle.fill" : "circle")
-                                        .font(.title3.weight(.bold))
-                                        .foregroundStyle(language == selectedLanguage ? BlitzTheme.success : BlitzTheme.dim)
-                                }
-                                .padding(14)
-                                .frame(maxWidth: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(BlitzTheme.cardGradient)
-                                        .overlay {
-                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke((language == selectedLanguage ? BlitzTheme.primary : BlitzTheme.primary.opacity(0.12)), lineWidth: 1)
-                                        }
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-                .padding(20)
-            }
-            .scrollContentBackground(.hidden)
-            .blitzScreen()
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Tamam") {
-                        dismiss()
-                    }
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(BlitzTheme.accent)
-                }
-            }
+        case .free: FreeStudyView(words: words, learningLanguage: learningLanguage)
+        case .typing: TypingModeView(words: words, learningLanguage: learningLanguage)
+        case .sentence: SentenceModeView(words: words, learningLanguage: learningLanguage)
+        case .hunt: WordHuntView(words: words, learningLanguage: learningLanguage)
         }
     }
 }
 
 private struct BrandHeader: View {
+    var compact: Bool
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 14) {
-                BlitzLogoMark(size: 64, cornerRadius: 16)
-                    .shadow(color: BlitzTheme.accent.opacity(0.3), radius: 18, x: 0, y: 0)
+        HStack(spacing: 14) {
+            BlitzLogoMark(size: compact ? 44 : 56, cornerRadius: compact ? 11 : 14)
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("BlitzFlash")
-                        .font(.system(size: 44, weight: .black, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [BlitzTheme.primaryLight, BlitzTheme.primary, BlitzTheme.secondary],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .shadow(color: BlitzTheme.primary.opacity(0.42), radius: 16, x: 0, y: 0)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("BlitzFlash")
+                    .font(.system(size: compact ? 26 : 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(BlitzTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
+                if !compact {
                     Text("Kendi ritminde öğren, modunu seç ve başla.")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.subheadline)
+                        .foregroundStyle(BlitzTheme.muted)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// Ücretsiz kullanıcıya bugün kalan hakkı, Plus kullanıcısına durumunu gösterir.
+private struct DailyAllowanceCard: View {
+    @Environment(MonetizationStore.self) private var monetization
+
+    var body: some View {
+        Button {
+            monetization.isPaywallPresented = true
+        } label: {
+            HStack(spacing: 14) {
+                if monetization.isPremium {
+                    Image(systemName: "crown.fill")
+                        .font(.title2)
+                        .foregroundStyle(BlitzTheme.accent)
+                        .frame(width: 48, height: 48)
+                        .background(BlitzTheme.accent.opacity(0.14), in: .circle)
+                } else {
+                    Gauge(value: Double(monetization.remainingToday), in: 0...Double(MonetizationStore.freeDailyLimit)) {
+                        EmptyView()
+                    } currentValueLabel: {
+                        Text("\(monetization.remainingToday)")
+                            .font(.headline.monospacedDigit())
+                    }
+                    .gaugeStyle(.accessoryCircularCapacity)
+                    .tint(monetization.remainingToday > 5 ? BlitzTheme.primary : BlitzTheme.danger)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(monetization.isPremium ? "Plus aktif" : "Bugünkü hakkın")
+                        .font(.headline)
+                        .foregroundStyle(BlitzTheme.ink)
+                    Text(monetization.isPremium
+                         ? "Sınırsız çalışabilirsin."
+                         : "\(MonetizationStore.freeDailyLimit) sorudan \(monetization.remainingToday) kaldı. Plus ile sınırsız.")
+                        .font(.subheadline)
                         .foregroundStyle(BlitzTheme.muted)
                         .lineLimit(2)
                 }
 
                 Spacer(minLength: 0)
+
+                if !monetization.isPremium {
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BlitzTheme.dim)
+                }
             }
+            .padding(14)
+            .background(BlitzTheme.surface, in: .rect(cornerRadius: 16))
+            .shadow(color: BlitzTheme.cardShadow, radius: 10, x: 0, y: 3)
+        }
+        .buttonStyle(.plain)
+        .disabled(monetization.isPremium)
+    }
+}
+
+/// Duo iç ekranı sol bölmesi: her gün değişen bir kelime.
+private struct WordOfTheDayCard: View {
+    var language: LearningLanguage
+
+    private var word: VocabularyWord? {
+        let words = language.words
+        guard !words.isEmpty else { return nil }
+        let day = Calendar.current.ordinality(of: .day, in: .era, for: .now) ?? 0
+        return words[day % words.count]
+    }
+
+    var body: some View {
+        if let word {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Günün kelimesi", systemImage: "sparkles")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BlitzTheme.accent)
+
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(word.targetTerm(for: language))
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(BlitzTheme.ink)
+                    if let pronunciation = word.targetPronunciation(for: language) {
+                        Text("[ \(pronunciation) ]")
+                            .font(.callout.italic())
+                            .foregroundStyle(BlitzTheme.secondary)
+                    }
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+                Text(word.turkish)
+                    .font(.headline)
+                    .foregroundStyle(BlitzTheme.muted)
+
+                if let sentence = word.targetSentence(for: language) {
+                    Text(sentence)
+                        .font(.subheadline)
+                        .foregroundStyle(BlitzTheme.muted)
+                        .padding(.top, 4)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BlitzTheme.surface, in: .rect(cornerRadius: 16))
+            .shadow(color: BlitzTheme.cardShadow, radius: 10, x: 0, y: 3)
         }
     }
 }
 
-private struct ModeCard: View {
+private struct ModeIcon: View {
+    var mode: BlitzMode
+    var size: CGFloat
+
+    var body: some View {
+        Image(systemName: mode.icon)
+            .font(size > 52 ? .title2.weight(.semibold) : .title3.weight(.semibold))
+            .foregroundStyle(mode.tint)
+            .frame(width: size, height: size)
+            .background(mode.tint.opacity(0.14), in: .rect(cornerRadius: size * 0.24))
+    }
+}
+
+/// Normal iPhone: tam genişlik satır.
+private struct ModeRow: View {
     var mode: BlitzMode
 
     var body: some View {
         HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(iconGradient)
-                    .frame(width: 52, height: 52)
-                    .shadow(color: glowColor.opacity(0.28), radius: 14, x: 0, y: 0)
+            ModeIcon(mode: mode, size: 52)
 
-                Image(systemName: mode.icon)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(mode == .hunt ? BlitzTheme.background : .white)
-            }
-
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(mode.title)
-                    .font(.headline.weight(.bold))
+                    .font(.headline)
                     .foregroundStyle(BlitzTheme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -332,49 +272,55 @@ private struct ModeCard: View {
 
             Spacer(minLength: 0)
 
-            ZStack {
-                Circle()
-                    .fill(glowColor.opacity(0.14))
-                    .frame(width: 34, height: 34)
-
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.black))
-                    .foregroundStyle(glowColor)
-            }
+            Image(systemName: "chevron.right")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(BlitzTheme.dim)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(BlitzTheme.cardGradient)
-                .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(glowColor)
-                        .frame(width: 4)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(glowColor.opacity(0.18), lineWidth: 1)
-                }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 10)
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+        .background(BlitzTheme.surface, in: .rect(cornerRadius: 16))
+        .shadow(color: BlitzTheme.cardShadow, radius: 10, x: 0, y: 3)
     }
+}
 
-    private var glowColor: Color {
-        switch mode {
-        case .free: BlitzTheme.primary
-        case .typing: BlitzTheme.secondary
-        case .sentence: BlitzTheme.success
-        case .hunt: BlitzTheme.accent
+/// Duo ekranları: 2×2 kare kart. İç ekranda sağ bölmeyi boydan boya doldurur.
+private struct ModeTile: View {
+    var mode: BlitzMode
+    var isLarge: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: isLarge ? 10 : 6) {
+            ModeIcon(mode: mode, size: isLarge ? 60 : 42)
+
+            Spacer(minLength: 0)
+
+            Text(mode.title)
+                .font(isLarge ? .title3.weight(.bold) : .headline)
+                .foregroundStyle(BlitzTheme.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            Text(mode.subtitle)
+                .font(isLarge ? .subheadline : .caption)
+                .foregroundStyle(BlitzTheme.muted)
+                .lineLimit(2, reservesSpace: true)
         }
-    }
-
-    private var iconGradient: LinearGradient {
-        LinearGradient(
-            colors: [glowColor, glowColor.opacity(0.68)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        .padding(isLarge ? 20 : 14)
+        .frame(maxWidth: .infinity, minHeight: isLarge ? 160 : 132, maxHeight: isLarge ? .infinity : nil, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(BlitzTheme.surface)
+                .overlay(alignment: .topTrailing) {
+                    // Modun renginde hafif köşe parıltısı.
+                    Circle()
+                        .fill(mode.tint.opacity(0.16))
+                        .frame(width: isLarge ? 180 : 110)
+                        .blur(radius: 40)
+                        .offset(x: 40, y: -40)
+                }
+                .clipShape(.rect(cornerRadius: 20))
+        }
+        .shadow(color: BlitzTheme.cardShadow, radius: 10, x: 0, y: 3)
+        .contentShape(.rect(cornerRadius: 20))
     }
 }

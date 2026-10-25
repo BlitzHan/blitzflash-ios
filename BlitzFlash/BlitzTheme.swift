@@ -1,289 +1,214 @@
 import SwiftUI
 
+extension Color {
+    init(light: Color, dark: Color) {
+        self.init(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+        })
+    }
+}
+
 enum BlitzTheme {
-    static let primary = Color(red: 0.0, green: 0.94, blue: 1.0)
-    static let primaryDark = Color(red: 0.0, green: 0.62, blue: 0.7)
-    static let primaryLight = Color(red: 0.4, green: 0.97, blue: 1.0)
-    static let secondary = Color(red: 1.0, green: 0.18, blue: 0.49)
-    static let accent = Color(red: 1.0, green: 0.72, blue: 0.0)
-    static let background = Color(red: 0.03, green: 0.03, blue: 0.06)
-    static let surface = Color(red: 0.06, green: 0.06, blue: 0.12)
-    static let surfaceLight = Color(red: 0.1, green: 0.1, blue: 0.19)
-    static let ink = Color(red: 0.93, green: 0.94, blue: 0.96)
-    static let muted = Color(red: 0.55, green: 0.56, blue: 0.66)
-    static let dim = Color(red: 0.33, green: 0.35, blue: 0.45)
-    static let success = Color(red: 0.0, green: 0.9, blue: 0.46)
-    static let danger = Color(red: 1.0, green: 0.24, blue: 0.35)
-    static let warm = accent
-
-    static let cardGradient = LinearGradient(
-        colors: [surface, surfaceLight],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+    // Vurgu renkleri — açık/koyu moda uyumlu
+    static let primary = Color(
+        light: Color(red: 0.15, green: 0.42, blue: 0.96),
+        dark: Color(red: 0.42, green: 0.6, blue: 1.0)
+    )
+    static let secondary = Color(
+        light: Color(red: 0.48, green: 0.32, blue: 0.93),
+        dark: Color(red: 0.65, green: 0.54, blue: 1.0)
+    )
+    static let accent = Color(
+        light: Color(red: 0.95, green: 0.55, blue: 0.08),
+        dark: Color(red: 1.0, green: 0.66, blue: 0.25)
+    )
+    static let success = Color(
+        light: Color(red: 0.13, green: 0.62, blue: 0.33),
+        dark: Color(red: 0.3, green: 0.82, blue: 0.5)
+    )
+    static let danger = Color(
+        light: Color(red: 0.88, green: 0.22, blue: 0.24),
+        dark: Color(red: 1.0, green: 0.42, blue: 0.42)
     )
 
-    static let cyanMagenta = LinearGradient(
-        colors: [primary, secondary],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    // Yüzeyler — sistem semantik renkleri
+    static let background = Color(.systemGroupedBackground)
+    static let surface = Color(.secondarySystemGroupedBackground)
+    static let surfaceLight = Color(.tertiarySystemGroupedBackground)
+
+    // Metin
+    static let ink = Color.primary
+    static let muted = Color.secondary
+    static let dim = Color(.tertiaryLabel)
+
+    // Kart gölgesi — açık modda yumuşak, koyu modda görünmez denecek kadar hafif
+    static let cardShadow = Color.black.opacity(0.07)
 }
 
 struct BlitzBackground: View {
     var body: some View {
-        ZStack {
-            BlitzTheme.background
-
-            GridPattern()
-                .stroke(BlitzTheme.primary.opacity(0.055), lineWidth: 1)
-
-            LinearGradient(
-                colors: [
-                    BlitzTheme.primary.opacity(0.22),
-                    .clear,
-                    BlitzTheme.secondary.opacity(0.16),
-                    BlitzTheme.accent.opacity(0.08)
-                ],
-                startPoint: .topTrailing,
-                endPoint: .bottomLeading
-            )
-            .blur(radius: 28)
-
-            VStack {
-                HStack {
-                    Spacer()
-                    LightningGlyph(size: 150)
-                        .foregroundStyle(BlitzTheme.primary.opacity(0.08))
-                        .rotationEffect(.degrees(12))
-                        .padding(.trailing, -22)
-                }
-
-                Spacer()
-
-                HStack {
-                    LightningGlyph(size: 110)
-                        .foregroundStyle(BlitzTheme.secondary.opacity(0.08))
-                        .rotationEffect(.degrees(-18))
-                        .padding(.leading, -16)
-                    Spacer()
-                }
-            }
-        }
-        .ignoresSafeArea()
-    }
-}
-
-private struct GridPattern: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let spacing: CGFloat = 42
-
-        var x: CGFloat = 0
-        while x <= rect.maxX {
-            path.move(to: CGPoint(x: x, y: rect.minY))
-            path.addLine(to: CGPoint(x: x, y: rect.maxY))
-            x += spacing
-        }
-
-        var y: CGFloat = 0
-        while y <= rect.maxY {
-            path.move(to: CGPoint(x: rect.minX, y: y))
-            path.addLine(to: CGPoint(x: rect.maxX, y: y))
-            y += spacing
-        }
-
-        return path
-    }
-}
-
-struct LightningGlyph: View {
-    var size: CGFloat = 38
-
-    var body: some View {
-        Image(systemName: "bolt.fill")
-            .font(.system(size: size, weight: .black))
-            .shadow(color: BlitzTheme.primary.opacity(0.35), radius: 18, x: 0, y: 0)
+        BlitzTheme.background
+            .ignoresSafeArea()
     }
 }
 
 struct BlitzCard<Content: View>: View {
-    var glow: Color
     var content: Content
 
-    init(glow: Color = BlitzTheme.primary, @ViewBuilder content: () -> Content) {
-        self.glow = glow
+    init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
 
     var body: some View {
         content
-            .padding(16)
+            .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(BlitzTheme.cardGradient)
-                    .overlay(alignment: .top) {
-                        LinearGradient(
-                            colors: [.clear, glow.opacity(0.85), .clear],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .frame(height: 2)
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(glow.opacity(0.16), lineWidth: 1)
-                    }
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(BlitzTheme.surface)
             )
-            .shadow(color: .black.opacity(0.5), radius: 24, x: 0, y: 16)
-            .shadow(color: glow.opacity(0.12), radius: 28, x: 0, y: 0)
+            .shadow(color: BlitzTheme.cardShadow, radius: 12, x: 0, y: 4)
     }
 }
 
-struct SectionHeader: View {
+extension BlitzMode {
+    var tint: Color {
+        switch self {
+        case .free: BlitzTheme.primary
+        case .typing: BlitzTheme.secondary
+        case .sentence: BlitzTheme.success
+        case .hunt: BlitzTheme.accent
+        }
+    }
+}
+
+/// Uygulamadaki tüm tam genişlik düğmeler. iOS 26+ Liquid Glass, öncesinde düz dolgu.
+struct BlitzButtonLabel: View {
     var title: String
-    var actionTitle: String?
-    var action: (() -> Void)?
+    var icon: String
 
     var body: some View {
-        HStack {
-            Text(title)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(BlitzTheme.ink)
-
-            Spacer()
-
-            if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BlitzTheme.primary)
-            }
-        }
-    }
-}
-
-struct BlitzProminentButton: ButtonStyle {
-    var tint: Color = BlitzTheme.primary
-    var darkText = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(darkText ? BlitzTheme.background : .white)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [tint, tint.opacity(0.72)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(.white.opacity(0.14), lineWidth: 1)
-            }
-            .shadow(color: tint.opacity(configuration.isPressed ? 0.18 : 0.34), radius: configuration.isPressed ? 8 : 18, x: 0, y: 0)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-    }
-}
-
-struct BlitzOutlineButton: ButtonStyle {
-    var tint: Color = BlitzTheme.primary
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(tint)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(BlitzTheme.surface.opacity(0.72))
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(tint.opacity(0.42), lineWidth: 1)
-            }
-            .shadow(color: tint.opacity(configuration.isPressed ? 0.12 : 0.22), radius: configuration.isPressed ? 6 : 14, x: 0, y: 0)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-    }
-}
-
-struct BlitzCheckButtonStyle: ButtonStyle {
-    var tint: Color = BlitzTheme.accent
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline.weight(.black))
-            .foregroundStyle(isEnabled ? BlitzTheme.ink : BlitzTheme.dim)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
+        Label(title, systemImage: icon)
+            .font(.headline)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                BlitzTheme.surfaceLight.opacity(isEnabled ? 0.96 : 0.58),
-                                BlitzTheme.surface.opacity(isEnabled ? 0.98 : 0.72)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay(alignment: .top) {
-                LinearGradient(
-                    colors: [.clear, tint.opacity(isEnabled ? 0.86 : 0.2), .clear],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(height: 2)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(tint.opacity(isEnabled ? 0.34 : 0.12), lineWidth: 1)
-            }
-            .shadow(color: tint.opacity(isEnabled ? (configuration.isPressed ? 0.16 : 0.28) : 0), radius: configuration.isPressed ? 10 : 18, x: 0, y: 0)
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .animation(.spring(response: 0.24, dampingFraction: 0.82), value: configuration.isPressed)
-            .animation(.easeInOut(duration: 0.18), value: isEnabled)
-    }
-}
-
-struct BlitzCheckButtonLabel: View {
-    var title: String = "Kontrol Et"
-    var tint: Color = BlitzTheme.accent
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(tint.opacity(0.18))
-                    .frame(width: 34, height: 34)
-
-                Image(systemName: "bolt.fill")
-                    .font(.headline.weight(.black))
-                    .foregroundStyle(tint)
-            }
-
-            Text(title)
-
-            Spacer()
-
-            Image(systemName: "arrow.up.right")
-                .font(.subheadline.weight(.black))
-                .foregroundStyle(tint)
-                .padding(8)
-                .background(tint.opacity(0.12))
-                .clipShape(Circle())
-        }
+            .padding(.vertical, 8)
     }
 }
 
 extension View {
+    @ViewBuilder
+    func blitzButton(tint: Color = BlitzTheme.primary, prominent: Bool = true) -> some View {
+        if #available(iOS 26, *) {
+            if prominent {
+                buttonStyle(.glassProminent).tint(tint).controlSize(.large)
+            } else {
+                buttonStyle(.glass).tint(tint).controlSize(.large)
+            }
+        } else {
+            buttonStyle(.borderedProminent)
+                .tint(prominent ? tint : tint.opacity(0.14))
+                .foregroundStyle(prominent ? Color.white : tint)
+                .controlSize(.large)
+                .buttonBorderShape(.roundedRectangle(radius: 14))
+        }
+    }
+
     func blitzScreen() -> some View {
         background(BlitzBackground())
-            .toolbarBackground(BlitzTheme.background.opacity(0.92), for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .tint(BlitzTheme.primary)
     }
+
+    /// Cevap kutusu görünümü (Yazarak Tahmin, Kelime Avı).
+    func blitzAnswerField() -> some View {
+        textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .submitLabel(.done)
+            .padding(14)
+            .foregroundStyle(BlitzTheme.ink)
+            .background(BlitzTheme.surface, in: .rect(cornerRadius: 14))
+            .shadow(color: BlitzTheme.cardShadow, radius: 6, x: 0, y: 2)
+    }
+}
+
+struct StatPill: View {
+    var title: String
+    var value: Int
+    var color: Color
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text("\(value)")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(color)
+                .contentTransition(.numericText(value: Double(value)))
+                .animation(.snappy, value: value)
+
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(BlitzTheme.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(BlitzTheme.surface, in: .rect(cornerRadius: 12))
+        .shadow(color: BlitzTheme.cardShadow, radius: 6, x: 0, y: 2)
+    }
+}
+
+/// Oyun sonu kartı (Yazarak Tahmin, Kelime Avı).
+struct ResultCard: View {
+    var title: String
+    var score: Int
+    var detail: String
+    var finishedAt: Date
+    var onReplay: () -> Void
+
+    var body: some View {
+        BlitzCard {
+            VStack(spacing: 14) {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(BlitzTheme.accent)
+                    .symbolEffect(.bounce, value: finishedAt)
+
+                Text(title)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(BlitzTheme.ink)
+
+                Text(finishedAt.formatted(date: .long, time: .shortened))
+                    .font(.subheadline)
+                    .foregroundStyle(BlitzTheme.muted)
+
+                Text("\(score) puan")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(score >= 0 ? BlitzTheme.success : BlitzTheme.danger)
+
+                Text(detail)
+                    .font(.headline)
+                    .foregroundStyle(BlitzTheme.primary)
+
+                Button(action: onReplay) {
+                    BlitzButtonLabel(title: "Tekrar Oyna", icon: "arrow.clockwise")
+                }
+                .blitzButton(tint: BlitzTheme.accent)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// Kısa bekleme; görünüm kapanınca ya da yeni bekleme başlayınca iptal olur.
+@MainActor
+final class Delay {
+    private var task: Task<Void, Never>?
+
+    func run(after seconds: Double, _ action: @escaping @MainActor () -> Void) {
+        task?.cancel()
+        task = Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            if !Task.isCancelled { action() }
+        }
+    }
+
+    func cancel() { task?.cancel() }
 }

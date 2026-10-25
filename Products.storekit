@@ -1,0 +1,35 @@
+{
+  "identifier" : "9A1C2B3D",
+  "nonRenewingSubscriptions" : [ ],
+  "products" : [
+    {
+      "displayPrice" : "999.99",
+      "familyShareable" : false,
+      "internalID" : "6760000004",
+      "localizations" : [ { "description" : "Tek ödemeyle günlük soru sınırını kalıcı kaldırın", "displayName" : "Ömür Boyu Plus", "locale" : "tr" } ],
+      "productID" : "com.blitzhanlabs.BlitzFlash.premium.lifetime",
+      "referenceName" : "Ömür Boyu Plus",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : { "_storefront" : "TUR", "_locale" : "tr" },
+  "subscriptionGroups" : [
+    {
+      "id" : "21000001",
+      "localizations" : [ ],
+      "name" : "BlitzFlash Plus",
+      "subscriptions" : [
+        { "adHocOffers" : [ ], "codeOffers" : [ ], "displayPrice" : "24.99", "familyShareable" : false, "groupNumber" : 3, "internalID" : "6760000001", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Bir hafta boyunca günlük soru sınırı olmadan çalışın", "displayName" : "Haftalık Plus", "locale" : "tr" } ],
+          "productID" : "com.blitzhanlabs.BlitzFlash.plus.weekly", "recurringSubscriptionPeriod" : "P1W", "referenceName" : "Haftalık Plus", "subscriptionGroupID" : "21000001", "type" : "RecurringSubscription", "winbackOffers" : [ ] },
+        { "adHocOffers" : [ ], "codeOffers" : [ ], "displayPrice" : "89.99", "familyShareable" : false, "groupNumber" : 2, "internalID" : "6760000002", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Bir ay boyunca günlük soru sınırı olmadan çalışın", "displayName" : "Aylık Plus", "locale" : "tr" } ],
+          "productID" : "com.blitzhanlabs.BlitzFlash.plus.monthly", "recurringSubscriptionPeriod" : "P1M", "referenceName" : "Aylık Plus", "subscriptionGroupID" : "21000001", "type" : "RecurringSubscription", "winbackOffers" : [ ] },
+        { "adHocOffers" : [ ], "codeOffers" : [ ], "displayPrice" : "499.99", "familyShareable" : false, "groupNumber" : 1, "internalID" : "6760000003", "introductoryOffer" : null,
+          "localizations" : [ { "description" : "Bir yıl boyunca günlük soru sınırı olmadan çalışın", "displayName" : "Yıllık Plus", "locale" : "tr" } ],
+          "productID" : "com.blitzhanlabs.BlitzFlash.plus.yearly", "recurringSubscriptionPeriod" : "P1Y", "referenceName" : "Yıllık Plus", "subscriptionGroupID" : "21000001", "type" : "RecurringSubscription", "winbackOffers" : [ ] }
+      ]
+    }
+  ],
+  "version" : { "major" : 4, "minor" : 0 }
+}

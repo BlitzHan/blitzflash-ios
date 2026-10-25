@@ -1,209 +1,177 @@
 import SwiftUI
-import Combine
 
 struct TypingModeView: View {
     var words: [VocabularyWord]
     var learningLanguage: LearningLanguage = .english
 
+    @Environment(MonetizationStore.self) private var monetization
+    @Environment(\.blitzLayout) private var layout
+
+    @State private var picker = WordPicker()
     @State private var currentWord: VocabularyWord?
-    @State private var recentWordIDs: [UUID] = []
     @State private var answer = ""
     @State private var correct = 0
     @State private var wrong = 0
-    @State private var score = 0
-    @State private var secondsLeft = 60
+    @State private var secondsLeft = Self.roundSeconds
     @State private var hasStarted = false
     @State private var isFinished = false
     @State private var feedback: TypingFeedback?
-    @State private var isResolvingAnswer = false
     @State private var finishedAt = Date()
+    @State private var delay = Delay()
+    @FocusState private var isFieldFocused: Bool
 
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private static let roundSeconds = 60
 
-    private var displayedWord: VocabularyWord {
-        currentWord ?? words.randomElement() ?? words[0]
-    }
+    private var score: Int { correct * 5 - wrong * 3 }
 
     var body: some View {
-        VStack(spacing: 18) {
-            HStack {
-                StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
-                StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
-                StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
-                StatPill(title: "Süre", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
+        VStack(spacing: layout.isShort ? 12 : 18) {
+            if !layout.isWide {
+                statsRow
             }
-
-            AdSlotView(placement: "Yazarak Tahmin")
 
             if isFinished {
-                resultPanel
+                ResultCard(
+                    title: "Yazarak Tahmin Sonucu",
+                    score: score,
+                    detail: "\(correct) doğru, \(wrong) yanlış",
+                    finishedAt: finishedAt,
+                    onReplay: restart
+                )
+                Spacer()
             } else {
-                BlitzCard(glow: BlitzTheme.secondary) {
-                    VStack(spacing: 14) {
-                        Text(learningLanguage.cardLabel)
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(BlitzTheme.primary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(BlitzTheme.primary.opacity(0.18))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                        Text(displayedWord.targetTerm(for: learningLanguage))
-                            .font(.system(size: 42, weight: .black, design: .rounded))
-                            .foregroundStyle(BlitzTheme.ink)
-                            .shadow(color: BlitzTheme.primary.opacity(0.24), radius: 18, x: 0, y: 0)
-
-                        Text(displayedWord.targetSentence(for: learningLanguage))
-                            .font(.body)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(BlitzTheme.muted)
+                AdaptiveSplit {
+                    wordCard
+                    if layout.isWide { Spacer(minLength: 0) }
+                } secondary: {
+                    if layout.isWide {
+                        statsRow
+                        timerBar
                     }
-                    .frame(maxWidth: .infinity, minHeight: 220)
-                }
-
-                TextField("Çeviriyi yaz...", text: $answer)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.done)
-                    .onSubmit(checkAnswer)
-                    .padding(14)
-                    .foregroundStyle(BlitzTheme.ink)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(BlitzTheme.surface)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(BlitzTheme.primary.opacity(0.2), lineWidth: 1)
-                            }
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .disabled(isResolvingAnswer)
-
-                Button(action: checkAnswer) {
-                    BlitzCheckButtonLabel(tint: BlitzTheme.secondary)
-                }
-                    .buttonStyle(BlitzCheckButtonStyle(tint: BlitzTheme.secondary))
-                    .disabled(isResolvingAnswer || answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                if let feedback {
-                    feedbackPanel(feedback)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    answerControls
+                    Spacer(minLength: 0)
                 }
             }
-
-            Spacer()
         }
-        .padding(20)
+        .padding(layout.isShort ? 16 : 20)
         .blitzScreen()
-        .navigationTitle("Yazarak Tahmin")
+        .navigationTitle(BlitzMode.typing.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sensoryFeedback(.success, trigger: correct)
+        .sensoryFeedback(.error, trigger: wrong)
         .onAppear {
-            prepareWordIfNeeded()
+            if currentWord == nil { currentWord = picker.next(from: words) }
         }
-        .onReceive(timer) { _ in
-            guard hasStarted, !isFinished else { return }
-            secondsLeft = max(secondsLeft - 1, 0)
-            if secondsLeft <= 0 {
-                finishGame()
+        .onDisappear { delay.cancel() }
+        .task(id: hasStarted) {
+            guard hasStarted else { return }
+            while secondsLeft > 0, !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                secondsLeft -= 1
             }
+            if secondsLeft == 0 { finish() }
         }
     }
 
-    private var resultPanel: some View {
-        BlitzCard(glow: BlitzTheme.accent) {
+    private var statsRow: some View {
+        HStack {
+            StatPill(title: "Puan", value: score, color: BlitzTheme.primary)
+            StatPill(title: "Doğru", value: correct, color: BlitzTheme.success)
+            StatPill(title: "Yanlış", value: wrong, color: BlitzTheme.danger)
+            StatPill(title: "Süre", value: secondsLeft, color: secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
+        }
+    }
+
+    private var timerBar: some View {
+        ProgressView(value: Double(secondsLeft), total: Double(Self.roundSeconds))
+            .tint(secondsLeft <= 10 ? BlitzTheme.danger : BlitzTheme.accent)
+            .animation(.linear(duration: 1), value: secondsLeft)
+    }
+
+    private var wordCard: some View {
+        let word = currentWord ?? words[0]
+        return BlitzCard {
             VStack(spacing: 14) {
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 44, weight: .black))
-                    .foregroundStyle(BlitzTheme.accent)
-
-                Text("Yazarak Tahmin Sonucu")
-                    .font(.title2.weight(.black))
-                    .foregroundStyle(BlitzTheme.ink)
-
-                Text("\(formattedDate(finishedAt)) • \(formattedTime(finishedAt))")
+                Text(learningLanguage.nativeTitle)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BlitzTheme.muted)
+                    .foregroundStyle(BlitzTheme.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(BlitzTheme.primary.opacity(0.12), in: .capsule)
 
-                Text("\(score) puan")
-                    .font(.system(size: 48, weight: .black, design: .rounded))
-                    .foregroundStyle(score >= 0 ? BlitzTheme.success : BlitzTheme.danger)
-                    .shadow(color: (score >= 0 ? BlitzTheme.success : BlitzTheme.danger).opacity(0.24), radius: 18, x: 0, y: 0)
+                Text(word.targetTerm(for: learningLanguage))
+                    .font(.system(size: layout.isShort ? 32 : 40, weight: .bold, design: .rounded))
+                    .foregroundStyle(BlitzTheme.ink)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.6)
+                    .contentTransition(.opacity)
 
-                Text("\(correct) doğru, \(wrong) yanlış")
-                    .font(.body)
-                    .foregroundStyle(BlitzTheme.muted)
-
-                Button("Tekrar Oyna") {
-                    recentWordIDs = []
-                    selectRandomWord()
-                    answer = ""
-                    correct = 0
-                    wrong = 0
-                    score = 0
-                    secondsLeft = 60
-                    hasStarted = false
-                    isFinished = false
-                    feedback = nil
-                    isResolvingAnswer = false
-                    finishedAt = Date()
+                if let sentence = word.targetSentence(for: learningLanguage) {
+                    Text(sentence)
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(BlitzTheme.muted)
                 }
-                .font(.headline)
-                .padding(.vertical, 13)
-                .frame(maxWidth: .infinity)
-                .buttonStyle(BlitzProminentButton(tint: BlitzTheme.accent, darkText: true))
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: layout.isShort ? 160 : 220)
+        }
+    }
+
+    private var answerControls: some View {
+        VStack(spacing: 12) {
+            TextField("Türkçe çevirisini yaz...", text: $answer)
+                .blitzAnswerField()
+                .focused($isFieldFocused)
+                .onSubmit(checkAnswer)
+                .disabled(feedback != nil)
+
+            Button(action: checkAnswer) {
+                BlitzButtonLabel(title: "Kontrol Et", icon: "arrow.right")
+            }
+            .blitzButton()
+            .disabled(feedback != nil || answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            if let feedback {
+                feedbackPanel(feedback)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
     }
 
     private func checkAnswer() {
-        guard !isFinished, !isResolvingAnswer else { return }
-        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedAnswer.isEmpty else { return }
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isFinished, feedback == nil, !trimmed.isEmpty, let word = currentWord else { return }
+        guard monetization.spend() else { return }
         hasStarted = true
 
-        let answeredWord = displayedWord
-        let isCorrect = answeredWord.matches(trimmedAnswer)
-        isResolvingAnswer = true
-
-        if isCorrect {
-            correct += 1
-            score += 5
-        } else {
-            wrong += 1
-            score -= 3
-        }
-
+        let isCorrect = word.matches(trimmed)
+        if isCorrect { correct += 1 } else { wrong += 1 }
         withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
-            feedback = TypingFeedback(isCorrect: isCorrect, target: answeredWord.targetTerm(for: learningLanguage), turkish: answeredWord.turkish)
+            feedback = TypingFeedback(isCorrect: isCorrect, target: word.targetTerm(for: learningLanguage), turkish: word.turkish)
         }
-
         answer = ""
 
-        let delay = isCorrect ? 1.1 : 2.35
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            guard isResolvingAnswer else { return }
-            withAnimation(.easeOut(duration: 0.18)) {
-                feedback = nil
-            }
-            selectRandomWord()
-            isResolvingAnswer = false
+        delay.run(after: isCorrect ? 1.1 : 2.35) {
+            withAnimation(.easeOut(duration: 0.18)) { feedback = nil }
+            currentWord = picker.next(from: words)
+            isFieldFocused = true
         }
     }
 
     private func feedbackPanel(_ feedback: TypingFeedback) -> some View {
-        HStack(spacing: 12) {
+        let tint = feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger
+        return HStack(spacing: 12) {
             Image(systemName: feedback.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .font(.title2)
-                .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
+                .foregroundStyle(tint)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(feedback.isCorrect ? "Doğru cevap" : "Doğru çeviri")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
 
                 Text("\(feedback.target) = \(feedback.turkish)")
-                    .font(.headline.weight(.bold))
+                    .font(.headline)
                     .foregroundStyle(BlitzTheme.ink)
                     .lineLimit(3)
                     .minimumScaleFactor(0.82)
@@ -212,61 +180,26 @@ struct TypingModeView: View {
             Spacer()
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(BlitzTheme.surfaceLight.opacity(0.9))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke((feedback.isCorrect ? BlitzTheme.success : BlitzTheme.danger).opacity(0.38), lineWidth: 1)
-                }
-        )
+        .background(tint.opacity(0.1), in: .rect(cornerRadius: 14))
     }
 
-    private func finishGame() {
+    private func finish() {
+        delay.cancel()
         finishedAt = Date()
         isFinished = true
-        isResolvingAnswer = false
         feedback = nil
     }
 
-    private func prepareWordIfNeeded() {
-        guard currentWord == nil else { return }
-        selectRandomWord()
-    }
-
-    private func selectRandomWord() {
-        guard !words.isEmpty else { return }
-        let pool = words.filter { !recentWordIDs.contains($0.id) }
-        let nextWord = (pool.isEmpty ? words : pool).randomElement()
-        currentWord = nextWord
-
-        if let nextWord {
-            recentWordIDs.append(nextWord.id)
-            if recentWordIDs.count > 40 {
-                recentWordIDs.removeFirst(recentWordIDs.count - 40)
-            }
-        }
-    }
-
-    private func formattedDate(_ date: Date) -> String {
-        date.formatted(
-            Date.FormatStyle
-                .dateTime
-                .locale(Locale(identifier: "tr_TR"))
-                .day()
-                .month(.wide)
-                .year()
-        )
-    }
-
-    private func formattedTime(_ date: Date) -> String {
-        date.formatted(
-            Date.FormatStyle
-                .dateTime
-                .locale(Locale(identifier: "tr_TR"))
-                .hour()
-                .minute()
-        )
+    private func restart() {
+        picker = WordPicker()
+        currentWord = picker.next(from: words)
+        answer = ""
+        correct = 0
+        wrong = 0
+        secondsLeft = Self.roundSeconds
+        hasStarted = false
+        isFinished = false
+        feedback = nil
     }
 }
 
